@@ -9,6 +9,7 @@ import {
   UsersRound,
   NotebookPen,
   Album,
+  Loader2,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { ModeToggle } from "../ui/mode-toggle";
@@ -38,18 +39,22 @@ import {
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { skipToken } from "@tanstack/react-query";
 import { LogoutButton } from "../container/LogoutButton";
+import { cn } from "@/lib/utils";
+import { useSidebar } from "../container/SidebarContext";
 
 export default function GuardedLayout({
   children,
 }: {
   readonly children: React.ReactNode;
 }) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathName = usePathname();
   const router = useRouter();
+
+  const { collapsed: sidebarCollapsed, setCollapsed: setSidebarCollapsed } =
+    useSidebar();
 
   const token = Cookies.get("auth.token");
 
@@ -143,7 +148,7 @@ export default function GuardedLayout({
                 href="/"
                 className="flex items-center justify-center space-x-3"
               >
-                <h1 className="text-2xl font-bold text-foreground">AMTS</h1>
+                <h1 className="text-2xl font-bold text-foreground">AFTS</h1>
               </Link>
             )}
             <Button
@@ -165,7 +170,7 @@ export default function GuardedLayout({
               {!sidebarCollapsed && (
                 <div className="mb-4">
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--foreground)] opacity-70 px-2">
-                    Assesment Database
+                    User Database
                   </h3>
                 </div>
               )}
@@ -195,20 +200,35 @@ export default function GuardedLayout({
           </nav>
 
           <div className="pt-4 px-4 border-t-4 border-[var(--border)]">
-            <Card className="p-4 bg-[var(--background)] border-[var(--border)]">
+            <Card
+              className={cn(
+                "p-4 bg-[var(--background)] border-[var(--border)]",
+                sidebarCollapsed ? "rounded-full p-0" : "rounded-lg"
+              )}
+            >
               {!sidebarCollapsed ? (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Avatar className="h-10 w-10">
                       <AvatarImage src="" />
-                      <AvatarFallback className="bg-[var(--main)] text-[var(--main-foreground)] font-bold">
-                        {user?.username?.charAt(0).toUpperCase() || "U"}
-                      </AvatarFallback>
+                      {isLoading ? (
+                        <AvatarFallback className="bg-[var(--main)] text-[var(--main-foreground)] font-bold">
+                          <Loader2 className="animate-spin h-4 w-4" />
+                        </AvatarFallback>
+                      ) : (
+                        <AvatarFallback className="bg-[var(--main)] text-[var(--main-foreground)] font-bold">
+                          {user?.username?.charAt(0).toUpperCase() || "U"}
+                        </AvatarFallback>
+                      )}
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[var(--foreground)] truncate">
-                        {user?.username || "Unknown"}
-                      </p>
+                      {isLoading ? (
+                        <span className="text-sm">Loading...</span>
+                      ) : (
+                        <p className="text-sm font-medium text-[var(--foreground)] truncate">
+                          {user?.username || "Unknown"}
+                        </p>
+                      )}
                       <p className="text-xs text-[var(--foreground)] opacity-70">
                         Online
                       </p>
@@ -274,7 +294,7 @@ export default function GuardedLayout({
                     <nav className="py-6 space-y-6">
                       <div className="px-4">
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4 px-2">
-                          Assesment Database
+                          User Database
                         </h3>
                         <div className="space-y-2">
                           {group2.map((item) => {
@@ -378,15 +398,9 @@ export default function GuardedLayout({
             </div>
           </Card>
 
-          <main className="flex-1 overflow-auto bg-[var(--background)]">
-            <div className="h-full p-6">{children}</div>
+          <main className="flex-1 overflow-auto bg-background">
+            <div className="h-full p-10">{children}</div>
           </main>
-
-          <div className="px-6 py-4 border-t-4">
-            <div className="text-center text-sm">
-              &copy; {new Date().getFullYear()}. All rights reserved.
-            </div>
-          </div>
         </div>
       </div>
     </div>

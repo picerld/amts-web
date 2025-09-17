@@ -7,12 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  user        User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model User {
   id        String   @id @default(uuid())
   username  String
   password  String
   grade     Int      @default(0)
   token     String?  @unique
+  roleId    Int
+  role      Role     @relation(fields: [roleId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
   Bank      Bank[]

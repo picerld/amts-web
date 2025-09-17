@@ -6,9 +6,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
 
   return (
     <Sonner
-      // theme={theme as ToasterProps["theme"]}
-      theme={"light"}
+      theme={theme as ToasterProps["theme"]}
       richColors
+      position="top-right"
       style={{ fontFamily: "inherit", overflowWrap: "anywhere" }}
       toastOptions={{
         unstyled: true,

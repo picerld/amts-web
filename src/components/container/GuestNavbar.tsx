@@ -8,10 +8,10 @@ export default function GuestNavbar() {
     <header className="w-full fixed bg-background shadow-shadow py-5 px-10">
       <div className="container mx-auto flex items-center justify-between">
         <nav className="flex items-center justify-center w-full gap-6">
-          <Link href={"/"} className={buttonVariants({ variant: "default" })}>
+          {/* <Link href={"/"} className={buttonVariants({ variant: "default" })}>
             <Home className="!w-6 !h-6" strokeWidth={2} />
             Home
-          </Link>
+          </Link> */}
         </nav>
         <div className="flex justify-end">
           <ModeToggle />

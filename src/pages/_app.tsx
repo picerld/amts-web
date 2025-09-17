@@ -8,6 +8,7 @@ import "@/styles/globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Poppins } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { SidebarProvider } from "@/components/container/SidebarContext";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -38,7 +39,9 @@ function MyApp({ Component, pageProps }: AppProps) {
           disableTransitionOnChange
         >
           <div className={poppins.className}>
-            <Component {...pageProps} />
+            <SidebarProvider>
+              <Component {...pageProps} />
+            </SidebarProvider>
 
             <Toaster />
           </div>

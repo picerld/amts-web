@@ -42,11 +42,11 @@ export const authRouter = router({
         data: { token: token },
       });
 
-      const { password: _, ...userWithoutPassword } = user;
+      const { password: _, token: __, ...userWithoutPasswordAndToken } = user;
 
       return {
         token,
-        user: userWithoutPassword,
+        user: userWithoutPasswordAndToken,
       };
     }),
 

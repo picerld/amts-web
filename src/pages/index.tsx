@@ -8,7 +8,7 @@ export default function LoginPage() {
       <PageContainer>
         <div className="w-full flex items-center justify-center min-h-screen">
           <div className="flex flex-col sm:w-md space-y-8">
-            <h1 className="font-bold text-4xl">Masuk AMTS</h1>
+            <h1 className="font-bold text-4xl">Masuk AFTS</h1>
             <LoginFormOuter />
           </div>
         </div>
