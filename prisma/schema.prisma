@@ -20,7 +20,6 @@ model User {
   id        String   @id @default(uuid())
   username  String
   password  String
-  grade     Int      @default(0)
   token     String?  @unique
   roleId    Int
   role      Role     @relation(fields: [roleId], references: [id])
@@ -29,14 +28,27 @@ model User {
   Bank      Bank[]
 }
 
+model UserGrade {
+  id        String   @id @default(uuid())
+  userId    String
+  grade     Int
+  bankId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+  bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
+}
+
 model Bank {
-  id        Int        @id @default(autoincrement())
+  id        Int         @id @default(autoincrement())
   title     String
   userId    String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @default(now())
+  type      String // it should be "pg" or "ex"
+  category  String // it should be "normal" or "emergency"
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @default(now())
   questions Question[]
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userGrade UserGrade[]
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Question {

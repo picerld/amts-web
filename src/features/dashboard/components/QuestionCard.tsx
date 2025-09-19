@@ -28,8 +28,10 @@ export const QuestionCard = () => {
           <CardHeader>
             <CardTitle className="font-bold text-2xl">{bank.title}</CardTitle>
             <CardDescription className="flex justify-between">
-              <p className="text-sm font-semibold">admin</p>
-              <p className="text-sm">{bank.createdAt.toString()}</p>
+              <p className="text-sm font-semibold">{bank.user.username}</p>
+              <p className="text-sm">
+                {bank.createdAt.toLocaleString("id-Id")}
+              </p>
             </CardDescription>
           </CardHeader>
           <CardContent>test</CardContent>

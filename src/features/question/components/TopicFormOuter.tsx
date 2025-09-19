@@ -48,7 +48,7 @@ export const TopicFormOuter = ({ onBankCreated }: TopicFormOuterProps) => {
     try {
       createBank({
         title: value.title,
-        userId: "1",
+        userId: "36f079f2-c928-4deb-babc-478770e87e36",
       });
 
       setTimeout(() => {

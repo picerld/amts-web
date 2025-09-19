@@ -1,9 +1,9 @@
 import { IAnswer } from "./answer";
 
 export interface IQuestion {
-    id: number;
-    question: string;
-    answers: IAnswer[];
-    createdAt: Date;
-    updatedAt: Date;
+  id: number;
+  question: string;
+  createdAt: Date;
+  updatedAt: Date;
+  answers?: IAnswer[];
 }

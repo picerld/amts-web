@@ -1,10 +1,15 @@
 import { IQuestion } from "./question";
+import { User } from "./user";
 
 export interface IBank {
-    id: number;
-    title: string;
-    createdAt: Date;
-    updatedAt: Date;
+  id: number;
+  title: string;
+  userId: string;
+  type: string;
+  category: string;
+  createdAt: Date;
+  updatedAt: Date;
 
-    questions: IQuestion[]
+  user?: User;
+  questions?: IQuestion[];
 }
