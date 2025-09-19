@@ -3,17 +3,15 @@
 import { DataTableColumnHeader } from "@/components/datatable/data-table-column-header";
 import { Checkbox } from "@/components/ui/checkbox";
 import { type ColumnDef } from "@tanstack/react-table";
-import { ActionsCell } from "./action-cell";
-import { IBank } from "@/types/bank";
 import { Badge } from "@/components/ui/badge";
+import { Info } from "lucide-react";
+import { IUserGrade } from "@/types/userGrade";
+import { Button } from "@/components/ui/button";
 
-export function columns(
-  onEdit: (bank: IBank) => void,
-  meta: {
-    page: number;
-    perPage: number;
-  }
-): ColumnDef<IBank>[] {
+export function columns(meta: {
+  page: number;
+  perPage: number;
+}): ColumnDef<IUserGrade>[] {
   return [
     {
       id: "select",
@@ -52,36 +50,45 @@ export function columns(
       ),
     },
     {
-      accessorKey: "title",
+      accessorKey: "user.username",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Subject" />
+        <DataTableColumnHeader column={column} title="Student" />
       ),
     },
     {
-      accessorKey: "category",
+      accessorKey: "bank.title",
+      header: () => (
+        <div className="text-left text-base font-semibold">Subject</div>
+      ),
+      cell: ({ row }) => {
+        return <p className="text-pretty text-sm">{row.original.bank.title}</p>;
+      },
+    },
+    {
+      accessorKey: "bank.category",
       header: () => (
         <div className="text-left text-base font-semibold">Category</div>
       ),
       cell: ({ row }) => {
-        return <Badge variant={"default"}>{row.original.category}</Badge>;
+        return <Badge variant={"default"}>{row.original.bank.category}</Badge>;
       },
     },
     {
-      accessorKey: "type",
+      accessorKey: "bank.type",
       header: () => (
         <div className="text-left text-base font-semibold">Type of Subject</div>
       ),
       cell: ({ row }) => {
-        return <Badge variant={"neutral"}>{row.original.type}</Badge>;
+        return <Badge variant={"neutral"}>{row.original.bank.type}</Badge>;
       },
     },
     {
-      accessorKey: "user.username",
+      accessorKey: "grade",
       header: () => (
-        <div className="text-left text-base font-semibold">Created By</div>
+        <div className="text-left text-base font-semibold">Grade</div>
       ),
       cell: ({ row }) => {
-        return <div className="text-justify text-pretty">Admin</div>;
+        return <p className="text-pretty text-sm">{row.original.grade}</p>;
       },
     },
     {
@@ -109,7 +116,11 @@ export function columns(
       cell: ({ row }) => {
         const bank = row.original;
 
-        return <ActionsCell bank={bank} type={bank.type} onEdit={onEdit} />;
+        return (
+          <Button variant={"neutral"}>
+            <Info />
+          </Button>
+        );
       },
     },
   ];

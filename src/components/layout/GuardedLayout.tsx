@@ -39,7 +39,7 @@ import {
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { skipToken } from "@tanstack/react-query";
 import { LogoutButton } from "../container/LogoutButton";
 import { cn } from "@/lib/utils";

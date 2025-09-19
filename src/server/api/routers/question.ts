@@ -21,6 +21,7 @@ export const questionRouter = router({
     .query(async ({ input, ctx }) => {
       return ctx.prisma.question.findMany({
         where: { bankId: input.bankId },
+        orderBy: { createdAt: 'desc' },
         include: { answers: true },
       });
     }),

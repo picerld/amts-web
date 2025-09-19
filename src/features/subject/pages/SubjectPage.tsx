@@ -28,7 +28,7 @@ export default function SubjectPage() {
         </Link>
       </Header>
 
-      <div className="container mx-auto py-6">
+      <div className="container mx-auto mt-3">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="table" className="cursor-pointer">
@@ -39,11 +39,11 @@ export default function SubjectPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="table" className="mt-6">
+          <TabsContent value="table">
             <SubjectDataTable />
           </TabsContent>
 
-          <TabsContent value="list" className="mt-6">
+          <TabsContent value="list" className="mt-14">
             <SubjectListView />
           </TabsContent>
         </Tabs>

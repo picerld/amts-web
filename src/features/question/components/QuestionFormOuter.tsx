@@ -244,7 +244,7 @@ export const QuestionFormOuter = ({ subject }: { subject?: IBank }) => {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between w-full gap-2 mb-2">
-                        <span className="px-2 py-1 rounded text-sm font-medium">
+                        <span className="px-2 py-1 rounded text-lg font-medium">
                           #
                           {(questions?.findIndex((item) => item.id === q.id) ??
                             -1) + 1}
@@ -259,7 +259,7 @@ export const QuestionFormOuter = ({ subject }: { subject?: IBank }) => {
                           </Button>
                         </div>
                       </div>
-                      <p className="text-sm font-medium mb-2 line-clamp-2">
+                      <p className="text-base font-semibold mb-2 line-clamp-2">
                         {q.question}
                       </p>
                       <div className="grid grid-cols-2 gap-2">
