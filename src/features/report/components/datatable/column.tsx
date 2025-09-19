@@ -88,7 +88,7 @@ export function columns(meta: {
         <div className="text-left text-base font-semibold">Grade</div>
       ),
       cell: ({ row }) => {
-        return <p className="text-pretty text-sm">{row.original.grade}</p>;
+        return <p className="text-pretty text-sm font-bold">{row.original.grade}</p>;
       },
     },
     {

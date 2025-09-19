@@ -120,7 +120,7 @@ export default function GuardedLayout({
           variant={item.active ? "default" : "neutral"}
           className={`w-full justify-start h-11 my-1.5 px-4 font-medium transition-all duration-200 hover:scale-[1.02] ${
             item.active
-              ? "bg-main text-main-foreground shadow-shadow"
+              ? "bg-main/60 text-main-foreground shadow-shadow"
               : "hover:bg-main/10 hover:text-main hover:translate-x-1"
           } ${sidebarCollapsed ? "px-0 justify-center" : ""}`}
         >
