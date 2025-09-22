@@ -18,7 +18,7 @@ export const MenuSectionTabContent = () => (
               Platform manajemen soal dan peserta terdepan
             </p>
             <Link
-              href={"/question/create"}
+              href={"/subjects"}
               className={buttonVariants({
                 variant: "neutral",
                 size: "lg",

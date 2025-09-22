@@ -115,13 +115,16 @@ export default function Page() {
               </TableHeader>
               <TableBody>
                 {data.userGrade
-                  .sort((a, b) => b.grade - a.grade)
+                  .toSorted((a, b) => b.grade - a.grade)
                   .map((user, index) => (
-                    <TableRow key={user.id}>
+                    <TableRow
+                      key={user.id}
+                      className="even:bg-main/10 bg-white/50"
+                    >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
                           {index === 0 && (
-                            <Trophy className="h-4 w-4 text-yellow-500" />
+                            <Trophy className="h-5 w-5 text-yellow-500" strokeWidth={2.5} />
                           )}
                           #{index + 1}
                         </div>
@@ -148,7 +151,7 @@ export default function Page() {
                           <div
                             className={`h-2 rounded-full ${
                               user.grade >= 90
-                                ? "bg-green-500"
+                                ? "bg-primary"
                                 : user.grade >= 80
                                 ? "bg-blue-500"
                                 : user.grade >= 70
