@@ -26,13 +26,18 @@ import { DataTableViewOptions } from "@/components/datatable/data-table-view-opt
 import { Loader } from "lucide-react";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { Button } from "@/components/ui/button";
+import { ExportOption } from "./export-option";
+import { FormCombobox } from "@/components/ui/form-combobox";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   search: string;
+  value: string;
+  subjectsArray: { value: string; label: string }[];
   isLoading: boolean;
   date: Date | undefined;
+  setValue: (value: string) => void;
   setDate: (date: Date | undefined) => void;
   handleSearch: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
@@ -40,9 +45,12 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
+  value,
+  subjectsArray,
+  date,
   search,
   isLoading,
-  date,
+  setValue,
   setDate,
   handleSearch,
 }: DataTableProps<TData, TValue>) {
@@ -81,6 +89,12 @@ export function DataTable<TData, TValue>({
           className="max-w-xs"
         />
         <div className="flex gap-3 items-center">
+          <FormCombobox
+            value={value}
+            onChange={setValue}
+            options={subjectsArray}
+            placeholder="Select subject..."
+          />
           <DatePickerInput
             disabled={isLoading}
             value={date}
@@ -89,10 +103,14 @@ export function DataTable<TData, TValue>({
           <Button
             variant={"neutral"}
             size={"sm"}
-            onClick={() => setDate(undefined)}
+            onClick={() => {
+              setDate(undefined);
+              setValue("");
+            }}
           >
             Reset
           </Button>
+          <ExportOption table={table} />
           <DataTableViewOptions table={table} />
         </div>
       </div>

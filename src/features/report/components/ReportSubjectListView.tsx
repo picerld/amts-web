@@ -10,36 +10,39 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Plus,
   Search,
   MoreHorizontal,
-  Trash2,
   BookOpen,
   Calendar,
-  Users,
   BookMarked,
   Filter,
   X,
   UsersRound,
+  CloudDownload,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { trpc } from "@/utils/trpc";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { DatePickerInput } from "@/components/DatePickerInput";
+import { toast } from "sonner";
 
 type CategoryFilter = "ALL" | "NORMAL" | "EMERGENCY";
 type TypeFilter = "ALL" | "PG" | "EX";
 
 export default function ReportSubjectListView() {
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
   const [search, setSearch] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
 
-  const { data, isLoading } = trpc.bank.getAll.useQuery();
+  const { data, isLoading: isLoadingSubjects } = trpc.bank.getAll.useQuery();
 
-  if (isLoading) {
+  const exportCSV = trpc.userGrade.exportCsv.useMutation();
+
+  if (isLoadingSubjects) {
     return <div className="py-4">Wait a moment...</div>;
   }
 
@@ -84,6 +87,35 @@ export default function ReportSubjectListView() {
     setCategoryFilter("ALL");
     setTypeFilter("ALL");
     setDateFilter(undefined);
+  };
+
+  const handleDownloadCSV = async (bankId: number) => {
+    setIsLoading(true);
+
+    try {
+      const csvData = await exportCSV.mutateAsync({
+        bankId: bankId,
+        endDate: new Date().toISOString(),
+      });
+
+      const blob = new Blob([csvData.csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", csvData.fileName);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download CSV:", error);
+      toast.error("Oops, Something went wrong!", {
+        description: "Try again later!",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -184,6 +216,21 @@ export default function ReportSubjectListView() {
               </button>
             </div>
           )}
+          {dateFilter?.toString() !== undefined && (
+            <div className="flex items-center gap-2 bg-white/50 border-2 px-3 py-1 rounded-full text-sm">
+              <span>Date: {dateFilter?.toLocaleString("id-ID", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}</span>
+              <button
+                onClick={() => setDateFilter(undefined)}
+                className="hover:bg-main cursor-pointer rounded-full p-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -208,13 +255,11 @@ export default function ReportSubjectListView() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Users className="mr-2 h-4 w-4" />
-                      Questions
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
+                    <DropdownMenuItem
+                      onClick={() => handleDownloadCSV(subject.id)}
+                    >
+                      <CloudDownload className="mr-2 h-4 w-4" />
+                      Export as CSV
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

@@ -14,13 +14,15 @@ export function UserGradeDatatable() {
   const pathName = usePathname();
   const searchParams = useSearchParams();
 
+  const [value, setValue] = useState<string>("");
+
   const [page, setPage] = useState<number>(1);
   const [perPage, setPerPage] = useState<number>(5);
   const [search, setSearch] = useState<string>("");
 
   const [date, setDate] = useState<Date | undefined>(undefined);
 
-  console.log(date);
+  const { data: subjects } = trpc.bank.getAll.useQuery();
 
   useEffect(() => {
     setPage(Number(searchParams.get("page")) || 1);
@@ -34,6 +36,7 @@ export function UserGradeDatatable() {
     {
       page,
       perPage,
+      bankId: value ? Number(value) : undefined,
       createdAt: date ? date.toISOString() : undefined,
       search: debouncedSearch,
     },
@@ -66,6 +69,13 @@ export function UserGradeDatatable() {
       },
     })) ?? [];
 
+  const subjectsArray = [
+    ...(subjects ?? []).map((subject) => ({
+      label: `${subject.title} (${subject.type} - ${subject.category})`,
+      value: subject.id.toString(),
+    })),
+  ];
+
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
     const params = new URLSearchParams(searchParams);
@@ -95,6 +105,8 @@ export function UserGradeDatatable() {
       <DataTable
         date={date}
         search={search}
+        value={value}
+        subjectsArray={subjectsArray}
         columns={columns({
           page: data.meta.currentPage,
           perPage: data.meta.perPage,
@@ -102,6 +114,7 @@ export function UserGradeDatatable() {
         data={tableData}
         isLoading={isLoading}
         setDate={setDate}
+        setValue={setValue}
         handleSearch={handleSearchChange}
       />
 
