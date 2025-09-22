@@ -4,7 +4,7 @@ import { HeadMetaData } from "@/components/meta/HeadMetaData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { UserGradeDatatable } from "../components/datatable/user-grade-datatable";
-import SubjectListView from "@/features/subject/components/SubjectListView";
+import ReportSubjectListView from "../components/ReportSubjectListView";
 
 export default function ReportPage() {
   const [activeTab, setActiveTab] = useState("student-list");
@@ -30,7 +30,7 @@ export default function ReportPage() {
           </TabsContent>
 
           <TabsContent value="subject" className="mt-14">
-            <SubjectListView />
+            <ReportSubjectListView />
           </TabsContent>
         </Tabs>
       </div>

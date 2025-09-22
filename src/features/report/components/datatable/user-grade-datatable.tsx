@@ -18,6 +18,10 @@ export function UserGradeDatatable() {
   const [perPage, setPerPage] = useState<number>(5);
   const [search, setSearch] = useState<string>("");
 
+  const [date, setDate] = useState<Date | undefined>(undefined);
+
+  console.log(date);
+
   useEffect(() => {
     setPage(Number(searchParams.get("page")) || 1);
     setPerPage(Number(searchParams.get("perPage")) || 5);
@@ -26,10 +30,11 @@ export function UserGradeDatatable() {
 
   const debouncedSearch = useDebounce(search, 1000);
 
-  const { data, isLoading, refetch } = trpc.userGrade.getPaginated.useQuery(
+  const { data, isLoading } = trpc.userGrade.getPaginated.useQuery(
     {
       page,
       perPage,
+      createdAt: date ? date.toISOString() : undefined,
       search: debouncedSearch,
     },
     {
@@ -88,6 +93,7 @@ export function UserGradeDatatable() {
   return (
     <div className="w-sm overflow-x-auto py-10 sm:w-full">
       <DataTable
+        date={date}
         search={search}
         columns={columns({
           page: data.meta.currentPage,
@@ -95,6 +101,7 @@ export function UserGradeDatatable() {
         })}
         data={tableData}
         isLoading={isLoading}
+        setDate={setDate}
         handleSearch={handleSearchChange}
       />
 

@@ -50,12 +50,22 @@ export const bankRouter = router({
     getAll: publicProcedure.query(async ({ ctx }) => {
         return ctx.prisma.bank.findMany({
             orderBy: { createdAt: 'desc' },
-            include: { user: true },
+            include: { user: true, _count: { select: { questions: true, userGrade: true } } },
         });
     }),
 
     getById: publicProcedure.input(z.object({ id: z.number() })).query(async ({ input, ctx }) => {
-        return ctx.prisma.bank.findFirst({ where: { id: input.id } });
+        return ctx.prisma.bank.findFirst({ where: { id: input.id }, include: { userGrade: {
+            select: {
+                id: true,
+                bankId: true,
+                grade: true,
+                userId: true,
+                user: true,
+                createdAt: true,
+                updatedAt: true,
+            }
+        } } });
     }),
 
     create: publicProcedure.input(subjectFormSchema).mutation(async ({ input, ctx }) => {

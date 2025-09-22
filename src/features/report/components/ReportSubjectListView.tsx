@@ -13,7 +13,6 @@ import {
   Plus,
   Search,
   MoreHorizontal,
-  Edit,
   Trash2,
   BookOpen,
   Calendar,
@@ -21,27 +20,24 @@ import {
   BookMarked,
   Filter,
   X,
+  UsersRound,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { trpc } from "@/utils/trpc";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { SubjectUpdateFormOuter } from "./update/SubjectUpdateFormOuter";
-import { IBank } from "@/types/bank";
+import { DatePickerInput } from "@/components/DatePickerInput";
 
 type CategoryFilter = "ALL" | "NORMAL" | "EMERGENCY";
 type TypeFilter = "ALL" | "PG" | "EX";
 
-export default function SubjectListView() {
+export default function ReportSubjectListView() {
   const [search, setSearch] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("ALL");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
 
-  const [selectedSubject, setSelectedSubject] = useState<IBank | null>(null);
-
-  const { data, isLoading, refetch } = trpc.bank.getAll.useQuery();
-
-  console.log(data);
+  const { data, isLoading } = trpc.bank.getAll.useQuery();
 
   if (isLoading) {
     return <div className="py-4">Wait a moment...</div>;
@@ -57,6 +53,17 @@ export default function SubjectListView() {
       categoryFilter === "ALL" || subject.category === categoryFilter;
     const matchesType = typeFilter === "ALL" || subject.type === typeFilter;
 
+    if (dateFilter) {
+      const subjectDate = new Date(subject.createdAt);
+      const filterDate = new Date(dateFilter);
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesType &&
+        subjectDate.toDateString() === filterDate.toDateString()
+      );
+    }
+
     return matchesSearch && matchesCategory && matchesType;
   });
 
@@ -69,11 +76,14 @@ export default function SubjectListView() {
   };
 
   const activeFiltersCount =
-    (categoryFilter !== "ALL" ? 1 : 0) + (typeFilter !== "ALL" ? 1 : 0);
+    (categoryFilter !== "ALL" ? 1 : 0) +
+    (typeFilter !== "ALL" ? 1 : 0) +
+    (dateFilter ? 1 : 0);
 
   const clearFilters = () => {
     setCategoryFilter("ALL");
     setTypeFilter("ALL");
+    setDateFilter(undefined);
   };
 
   return (
@@ -90,6 +100,7 @@ export default function SubjectListView() {
         </div>
 
         <div className="flex items-center gap-2">
+          <DatePickerInput value={dateFilter} onChange={setDateFilter} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="neutral" size="sm" className="relative">
@@ -197,23 +208,6 @@ export default function SubjectListView() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setSelectedSubject({
-                          ...subject,
-                          createdAt: new Date(subject.createdAt),
-                          updatedAt: new Date(subject.updatedAt),
-                          user: {
-                            ...subject.user,
-                            createdAt: new Date(subject.user.createdAt),
-                            updatedAt: new Date(subject.user.updatedAt),
-                          },
-                        });
-                      }}
-                    >
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
                     <DropdownMenuItem>
                       <Users className="mr-2 h-4 w-4" />
                       Questions
@@ -227,11 +221,19 @@ export default function SubjectListView() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-2 mb-4">
-                <BookOpen className="h-4 w-4" />
-                <span className="text-sm font-medium">
-                  {subject._count.questions} subjects
-                </span>
+              <div className="flex justify-between">
+                <div className="flex items-center gap-2 mb-4">
+                  <BookOpen className="h-4 w-4" />
+                  <span className="text-sm font-medium">
+                    {subject._count.questions} subjects
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mb-4">
+                  <UsersRound className="h-4 w-4" />
+                  <span className="text-sm font-medium">
+                    {subject._count.userGrade} students
+                  </span>
+                </div>
               </div>
 
               <div className="flex items-center gap-2 text-sm mb-4">
@@ -240,79 +242,22 @@ export default function SubjectListView() {
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  variant="neutral"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => {
-                    setSelectedSubject({
-                      ...subject,
-                      createdAt: new Date(subject.createdAt),
-                      updatedAt: new Date(subject.updatedAt),
-                      user: {
-                        ...subject.user,
-                        createdAt: new Date(subject.user.createdAt),
-                        updatedAt: new Date(subject.user.updatedAt),
-                      },
-                    });
-                  }}
+                <Link
+                  href={`/reports/subject/${subject.id}`}
+                  className={buttonVariants({
+                    variant: "neutral",
+                    className: "flex-1",
+                    size: "sm",
+                  })}
                 >
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-                <Button variant={"neutral"} size="sm" className="flex-1">
                   <BookMarked className="mr-2 h-4 w-4" />
-                  Questions
-                </Button>
+                  Students Grade
+                </Link>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {filteredSubjects.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-12">
-            <BookOpen className="mx-auto h-12 w-12" strokeWidth={2.5} />
-            <h3 className="mt-2 text-lg font-semibold">No subjects found</h3>
-            <p className="mt-1 text-sm">
-              {search || categoryFilter !== "ALL" || typeFilter !== "ALL"
-                ? "Try adjusting your search or filters."
-                : "You don't have any subjects yet."}
-            </p>
-            <div className="mt-6">
-              {search || categoryFilter !== "ALL" || typeFilter !== "ALL" ? (
-                <Button
-                  variant="neutral"
-                  onClick={() => {
-                    setSearch("");
-                    clearFilters();
-                  }}
-                >
-                  Clear all filters
-                </Button>
-              ) : (
-                <Link
-                  href="/subjects/create"
-                  className={buttonVariants({ variant: "neutral" })}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create your first subject
-                </Link>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {selectedSubject && (
-        <SubjectUpdateFormOuter
-          subjectId={selectedSubject.id}
-          open={!!selectedSubject}
-          onClose={() => setSelectedSubject(null)}
-          onSuccess={() => refetch()}
-        />
-      )}
     </div>
   );
 }

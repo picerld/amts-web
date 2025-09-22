@@ -94,7 +94,7 @@ export function columns(meta: {
     {
       accessorKey: "createdAt",
       header: () => (
-        <div className="text-left text-base font-semibold">Created At</div>
+        <div className="text-left text-base font-semibold">Date</div>
       ),
       cell: ({ row }) => {
         return (

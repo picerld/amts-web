@@ -24,12 +24,16 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { DataTableViewOptions } from "@/components/datatable/data-table-view-option";
 import { Loader } from "lucide-react";
+import { DatePickerInput } from "@/components/DatePickerInput";
+import { Button } from "@/components/ui/button";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   search: string;
   isLoading: boolean;
+  date: Date | undefined;
+  setDate: (date: Date | undefined) => void;
   handleSearch: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
@@ -38,6 +42,8 @@ export function DataTable<TData, TValue>({
   data,
   search,
   isLoading,
+  date,
+  setDate,
   handleSearch,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -67,14 +73,28 @@ export function DataTable<TData, TValue>({
 
   return (
     <>
-      <div className="flex items-center pb-5">
+      <div className="flex items-center justify-between pb-5">
         <Input
           placeholder="Search student name..."
           value={search}
           onChange={handleSearch}
           className="max-w-xs"
         />
-        <DataTableViewOptions table={table} />
+        <div className="flex gap-3 items-center">
+          <DatePickerInput
+            disabled={isLoading}
+            value={date}
+            onChange={setDate}
+          />
+          <Button
+            variant={"neutral"}
+            size={"sm"}
+            onClick={() => setDate(undefined)}
+          >
+            Reset
+          </Button>
+          <DataTableViewOptions table={table} />
+        </div>
       </div>
       <div className="rounded-md border-2">
         <Table>
