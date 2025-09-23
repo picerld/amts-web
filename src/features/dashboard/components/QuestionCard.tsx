@@ -10,6 +10,7 @@ import {
 import { trpc } from "@/utils/trpc";
 import { IBank } from "@/types/bank";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 
 export const QuestionCard = () => {
   const router = useRouter();
@@ -26,36 +27,44 @@ export const QuestionCard = () => {
       {data?.slice(0, 8).map((bank) => (
         <Card key={bank.id} className="w-full max-w-sm">
           <CardHeader>
-            <CardTitle className="font-bold text-2xl">{bank.title}</CardTitle>
+            <CardTitle className="font-bold text-2xl flex flex-col gap-3">
+              <div className="flex gap-3">
+                <Badge>{bank.category}</Badge>
+                <Badge>{bank.type}</Badge>
+              </div>
+              {bank.title}
+            </CardTitle>
             <CardDescription className="flex justify-between">
-              <p className="text-sm font-semibold">{bank.user.username}</p>
+              <p className="text-sm font-semibold">{bank?.user?.username}</p>
               <p className="text-sm">
-                {bank.createdAt.toLocaleString("id-Id")}
+                {bank.createdAt.toLocaleString("id-ID", {
+                  day: "numeric",
+                  month: "numeric",
+                  year: "numeric",
+                })}
               </p>
             </CardDescription>
           </CardHeader>
-          <CardContent>test</CardContent>
+          <CardContent></CardContent>
           <CardFooter className="flex gap-3">
             <Button
               onClick={() => {
-                router.push("/question/create");
-                localStorage.setItem("bankId", bank.id.toString());
-                localStorage.setItem("topicTitle", bank.title);
+                router.push("/subjects");
               }}
-              className="w-1/2"
+              className={`${bank.type == "PG" ? "w-1/2" : "w-full"}`}
             >
               Lihat Bank Soal
             </Button>
-            <Button
-              onClick={() => {
-                router.push("/question/create");
-                localStorage.setItem("bankId", bank.id.toString());
-                localStorage.setItem("topicTitle", bank.title);
-              }}
-              className="w-1/2"
-            >
-              Preview Soal
-            </Button>
+            {bank.type == "PG" && (
+              <Button
+                onClick={() => {
+                  router.push(`/subjects/${bank.id}/questions`);
+                }}
+                className="w-1/2"
+              >
+                Preview Soal
+              </Button>
+            )}
           </CardFooter>
         </Card>
       ))}
