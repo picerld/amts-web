@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedPaths = ["/dashboard", "/subjects", "/reports"];
+const protectedPaths = ["/dashboard", "/subjects", "/reports", "/students", "/instructors"];
 
 export function middleware(req: NextRequest) {
   const token = req.cookies.get("auth.token")?.value;
   const pathname = req.nextUrl.pathname;
   const searchParams = req.nextUrl.searchParams;
+
+  const isStudent = req.cookies.get("auth.role")?.value == "2";
+
+  if (isStudent && protectedPaths.some((path) => pathname.startsWith(path))) {
+    return NextResponse.redirect(new URL("/exams", req.url));
+  } 
 
   const isProtected = protectedPaths.some((path) => pathname.startsWith(path));
 
@@ -27,5 +33,7 @@ export const config = {
     "/dashboard/:path*",
     "/subjects/:path*",
     "/reports/:path*",
+    "/students/:path*",
+    "/instructors/:path*",
   ],
 };

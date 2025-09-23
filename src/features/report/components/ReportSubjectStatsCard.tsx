@@ -40,7 +40,7 @@ export const ReportSubjectStatsCard = ({
           />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-green-600">
+          <div className="text-2xl font-bold text-main">
             {stats.highest}
           </div>
         </CardContent>

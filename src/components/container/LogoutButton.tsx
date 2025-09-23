@@ -47,6 +47,7 @@ export const LogoutButton = () => {
 
     Cookies.remove("auth.token");
     Cookies.remove("user.id");
+    Cookies.remove("auth.role");
 
     logoutMutation.mutate({ token });
   }
