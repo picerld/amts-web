@@ -5,6 +5,7 @@ import { userRouter } from './routers/user';
 import { authRouter } from './routers/auth';
 import { bankRouter } from './routers/bank';
 import { userGradeRouter } from './routers/grade';
+import { statsRouter } from './routers/stats';
 
 export const appRouter = router({
   question: questionRouter,
@@ -13,6 +14,7 @@ export const appRouter = router({
   users: userRouter,
   auth: authRouter,
   userGrade: userGradeRouter,
+  stats: statsRouter,
 });
 
 export type AppRouter = typeof appRouter;
