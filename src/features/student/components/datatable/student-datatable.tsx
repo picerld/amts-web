@@ -8,6 +8,7 @@ import { DataTablePagination } from "@/components/datatable/data-table-paginatio
 import { DataTable } from "./data-table";
 import { columns } from "./column";
 import { User } from "@/types/user";
+import { StudentUpdateFormOuter } from "../update/StudentUpdateFormOuter";
 
 export function StudentDatatable() {
   const router = useRouter();
@@ -99,14 +100,14 @@ export function StudentDatatable() {
         onPerPageChange={handlePerPageChange}
       />
 
-      {/* {selectedUser && (
-        <InstructorUpdateFormOuter
+      {selectedUser && (
+        <StudentUpdateFormOuter
           userId={selectedUser.id}
           open={!!selectedUser}
           onClose={() => setSelectedUser(null)}
           onSuccess={() => refetch()}
         />
-      )} */}
+      )}
     </div>
   );
 }
