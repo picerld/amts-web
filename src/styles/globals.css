@@ -4,37 +4,39 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(90% 0.03 140);
-  --secondary-background: oklch(96% 0.02 140);
-  --foreground: oklch(18% 0.04 140);
+  --background: oklch(95% 0.02 260);
+  --secondary-background: oklch(90% 0.03 260);
+  --foreground: oklch(20% 0.05 260);
   --main-foreground: oklch(0% 0 0);
-  --main: oklch(55% 0.12 140);
-  --border: oklch(25% 0.05 140);
-  --ring: oklch(30% 0.07 140);
+  --main: oklch(35% 0.08 260);
+  --border: oklch(25% 0.04 260);
+  --ring: oklch(40% 0.08 260);
   --overlay: oklch(0% 0 0 / 0.8);
   --shadow: 0px 4px 0px 0px var(--border);
-  --chart-1: #2E7D32;
-  --chart-2: #388E3C;
-  --chart-3: #689F38;
-  --chart-4: #AEEA00;
-  --chart-5: #1B5E20;
+
+  --chart-1: #0D47A1;
+  --chart-2: #1565C0;
+  --chart-3: #1976D2;
+  --chart-4: #1E88E5;
+  --chart-5: #42A5F5;
   --chart-active-dot: #000;
 }
 
 .dark {
-  --background: oklch(18% 0.05 140);
-  --secondary-background: oklch(14% 0.05 140);
-  --foreground: oklch(92% 0.01 140);
+  --background: oklch(18% 0.04 260);
+  --secondary-background: oklch(14% 0.04 260);
+  --foreground: oklch(92% 0.01 260);
   --main-foreground: oklch(0% 0 0);
-  --main: oklch(60% 0.12 140);
-  --border: oklch(22% 0.04 140);
-  --ring: oklch(80% 0.05 140);
+  --main: oklch(40% 0.08 260);
+  --border: oklch(22% 0.04 260);
+  --ring: oklch(70% 0.1 260);
   --shadow: 0px 4px 0px 0px var(--border);
-  --chart-1: #66BB6A;
-  --chart-2: #81C784;
-  --chart-3: #9CCC65;
-  --chart-4: #43A047;
-  --chart-5: #2E7D32;
+
+  --chart-1: #42A5F5;
+  --chart-2: #64B5F6;
+  --chart-3: #90CAF9;
+  --chart-4: #2196F3;
+  --chart-5: #1565C0;
   --chart-active-dot: #fff;
 }
 
