@@ -1,4 +1,6 @@
 import { motion } from "framer-motion";
+import { AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export const GameHero = ({
   showStudents,
@@ -9,6 +11,8 @@ export const GameHero = ({
   showButtons: boolean;
   typewriterText: string;
 }) => {
+  const router = useRouter();
+
   return (
     <div className="relative z-10 w-full flex items-center justify-center min-h-screen px-4">
       <motion.div
@@ -17,9 +21,9 @@ export const GameHero = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
       >
-        <div className="font-extrabold tracking-tighter text-6xl md:text-8xl flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8">
+        <div className="font-extrabold tracking-tight text-6xl md:text-8xl flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8">
           <motion.div
-            className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-blue-300 to-cyan-300"
+            className="text-transparent bg-clip-text bg-black"
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.7, ease: "backOut", delay: 0.3 }}
@@ -29,7 +33,7 @@ export const GameHero = ({
 
           {showStudents && (
             <motion.div
-              className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-orange-300"
+              className="text-transparent bg-clip-text bg-black"
               initial={{ scale: 0.8, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: "backOut" }}
@@ -39,7 +43,7 @@ export const GameHero = ({
           )}
         </div>
 
-        <div className="text-xl text-gray-200 text-center min-h-[6rem] max-w-4xl mx-auto leading-relaxed">
+        <div className="text-xl text-black/70 text-center min-h-[6rem] max-w-4xl mx-auto leading-relaxed">
           {typewriterText}
           <motion.span
             className="inline-block w-0.5 h-7 bg-blue-400 ml-1"
@@ -52,7 +56,7 @@ export const GameHero = ({
 
         {showButtons && (
           <motion.div
-            className="flex flex-col md:flex-row gap-6 pt-12 justify-center items-center"
+            className="flex flex-col md:flex-row gap-6 pt-3 justify-center items-center"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, staggerChildren: 0.2 }}
@@ -93,6 +97,7 @@ export const GameHero = ({
                   scale: 1.05,
                   transition: { duration: 0.1, delay: 0.1 },
                 }}
+                onClick={() => router.push("/exams/subjects")}
               >
                 <motion.div
                   className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-20"
@@ -151,6 +156,7 @@ export const GameHero = ({
                        border-4 border-gray-500 group-hover:border-gray-400
                        shadow-2xl shadow-gray-700/50
                        transition-all duration-300 cursor-pointer"
+                onClick={() => router.push("/")}
               >
                 <span className="relative z-10 drop-shadow-lg flex items-center gap-3">
                   Exit
@@ -172,6 +178,53 @@ export const GameHero = ({
           </motion.div>
         )}
       </motion.div>
+
+      {showButtons && (
+        <motion.div
+          className="absolute bottom-10 right-10"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+        >
+          <motion.button
+            className="relative px-8 py-4 text-xl font-bold rounded-xl overflow-hidden
+                       bg-gradient-to-b from-gray-600 to-gray-800 text-gray-100
+                       border-4 border-gray-500 group-hover:border-gray-400
+                       shadow-2xl shadow-gray-700/50
+                       transition-all duration-300 cursor-pointer"
+            whileHover={{
+              scale: 1.05,
+              transition: { scale: { duration: 0.2 } },
+            }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <span className="relative z-10 drop-shadow-lg flex items-center gap-3">
+              Help
+              <AlertCircle strokeWidth={3} />
+            </span>
+
+            <motion.div
+              className="absolute inset-0 rounded-xl bg-gray-500 blur-xl -z-10"
+              animate={{
+                opacity: [0.2, 0.4, 0.2],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+          </motion.button>
+        </motion.div>
+      )}
+      {/* {showButtons && (
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1.3 }}
+          className="h-40 w-64 rounded-lg border-4 border-blue-900 bg-blue-700 shadow-shadow text-white absolute right-10 top-10"
+        ></motion.div>
+      )} */}
     </div>
   );
 };
