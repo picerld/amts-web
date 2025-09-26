@@ -82,51 +82,76 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         io.emit("quiz-started", updatedLobby);
       });
 
-      socket.on("join-lobby", async ({ lobbyId, userId, username }) => {
-        try {
-          socket.join(lobbyId);
+      socket.on("end-quiz", async ({ lobbyId }) => {
+        console.log("Ending quiz for lobby", lobbyId);
 
-          // Store in DB if not already in lobby
-          const existing = await prisma.lobbyUser.findFirst({
-            where: { lobbyId, userId },
-          });
+        const updated = await prisma.examLobby.update({
+          where: { id: lobbyId },
+          data: { status: "FINISHED" },
+        });
 
-          if (!existing) {
-            await prisma.lobbyUser.create({
-              data: {
-                lobbyId,
-                userId,
-                joinedAt: new Date(),
-              },
-            });
-          }
+        console.log("Updated lobby:", updated);
 
-          // Confirm to the student
-          socket.emit("join-success", {
-            lobbyId,
-            lobbyName: `Lobby ${lobbyId}`,
-          });
-
-          // Tell others in the lobby
-          socket.to(lobbyId).emit("student-joined", {
-            lobbyId,
-            userId,
-            username,
-          });
-
-          // 🔹 Update everyone (teacher + students) with new lobby counts
-          const allLobbies = await prisma.examLobby.findMany({
-            include: {
-              instructor: true,
-              _count: { select: { LobbyUser: true } },
-            },
-          });
-          io.emit("lobby-updated", allLobbies);
-        } catch (err) {
-          console.error("Error adding user to lobby:", err);
-          socket.emit("join-error", { message: "Could not join lobby" });
-        }
+        io.emit("quiz-ended", { lobbyId });
       });
+
+socket.on("join-lobby", async ({ lobbyId, userId, username }) => {
+  try {
+    socket.join(lobbyId);
+
+    const lobby = await prisma.examLobby.findUnique({
+      where: { id: lobbyId },
+    });
+
+    // Masukin user kalau belum ada
+    const existing = await prisma.lobbyUser.findFirst({
+      where: { lobbyId, userId },
+    });
+    if (!existing) {
+      await prisma.lobbyUser.create({
+        data: { lobbyId, userId, joinedAt: new Date() },
+      });
+    }
+
+    // Konfirmasi join
+    socket.emit("join-success", { lobbyId, lobbyName: lobby?.name });
+
+    // Broadcast join ke member lain
+    socket.to(lobbyId).emit("student-joined", { lobbyId, userId, username });
+
+    // Kalau lobby lagi jalan (ONGOING), hitung waktu tersisa
+    if (lobby?.status === "ONGOING" && lobby.startTime) {
+      const elapsed = Math.floor(
+        (Date.now() - lobby.startTime.getTime()) / 1000 / 60
+      );
+      const remaining = lobby.duration - elapsed;
+
+      if (remaining > 0) {
+        socket.emit("quiz-started", {
+          id: lobby.id,
+          name: lobby.name,
+          duration: lobby.duration,
+          remaining, // ⬅️ penting, buat student baru
+        });
+      } else {
+        socket.emit("quiz-ended", { lobbyId: lobby.id });
+      }
+    }
+
+    // Update semua lobby
+    const allLobbies = await prisma.examLobby.findMany({
+      include: {
+        instructor: true,
+        _count: { select: { LobbyUser: true } },
+      },
+    });
+    io.emit("lobby-updated", allLobbies);
+  } catch (err) {
+    console.error("Error adding user to lobby:", err);
+    socket.emit("join-error", { message: "Could not join lobby" });
+  }
+});
+
 
       // 📩 handle chat message
       socket.on(
@@ -169,26 +194,25 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       });
 
       // 📌 Student leaves lobby
-socket.on("leave-lobby", async ({ lobbyId, userId, username }) => {
-  await prisma.lobbyUser.deleteMany({ where: { lobbyId, userId } });
+      socket.on("leave-lobby", async ({ lobbyId, userId, username }) => {
+        await prisma.lobbyUser.deleteMany({ where: { lobbyId, userId } });
 
-  // Notify the leaving client
-  socket.emit("leave-success", { lobbyId });
+        // Notify the leaving client
+        socket.emit("leave-success", { lobbyId });
 
-  // Notify other clients in the lobby
-  socket.to(lobbyId).emit("student-left", { lobbyId, userId, username });
+        // Notify other clients in the lobby
+        socket.to(lobbyId).emit("student-left", { lobbyId, userId, username });
 
-  socket.leave(lobbyId);
+        socket.leave(lobbyId);
 
-  const allLobbies = await prisma.examLobby.findMany({
-    include: {
-      instructor: true,
-      _count: { select: { LobbyUser: true } },
-    },
-  });
-  io.emit("lobby-updated", allLobbies);
-});
-
+        const allLobbies = await prisma.examLobby.findMany({
+          include: {
+            instructor: true,
+            _count: { select: { LobbyUser: true } },
+          },
+        });
+        io.emit("lobby-updated", allLobbies);
+      });
 
       // 📌 Teacher deletes lobby
       socket.on("delete-lobby", async ({ lobbyId, instructorId }) => {

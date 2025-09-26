@@ -1,24 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Cookies from "js-cookie";
 import { getSocket } from "@/utils/socket";
 import { LobbyData } from "@/types/lobby";
-import { 
-  Plane, 
-  Users, 
-  Clock, 
-  Shield, 
-  Target, 
-  MessageSquare, 
-  Send, 
-  LogOut, 
+import {
+  Plane,
+  Users,
+  Clock,
+  Shield,
+  Target,
+  MessageSquare,
+  Send,
+  LogOut,
   RefreshCw,
   User,
   Star,
   Trophy,
-  Radar
+  Radar,
 } from "lucide-react";
+import { useCountdown } from "./hooks/useCountdown";
 
 type QuizData = {
   id: string;
@@ -49,6 +51,8 @@ export default function StudentPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
 
+  const countdown = useCountdown(currentQuiz?.duration ?? 0);
+
   useEffect(() => {
     const id =
       Cookies.get("user.id") ?? "student-" + Math.floor(Math.random() * 1000);
@@ -58,7 +62,6 @@ export default function StudentPage() {
     const s = getSocket();
     setSocket(s);
 
-    // Restore joined lobby if saved
     const savedLobby = localStorage.getItem("joinedLobby");
     if (savedLobby) {
       s.emit("join-lobby", { lobbyId: savedLobby, userId: id, username });
@@ -66,9 +69,10 @@ export default function StudentPage() {
 
     s.emit("get-lobbies");
 
-    // Event handlers
+    // ===== Handlers =====
     const lobbyUpdatedHandler = (updatedLobbies: LobbyData[]) => {
-      setLobbies(updatedLobbies.filter((l) => l.status === "WAITING"));
+      // setLobbies(updatedLobbies.filter((l) => l.status === "WAITING"));
+      setLobbies(updatedLobbies);
       setIsLoading(false);
     };
 
@@ -129,7 +133,6 @@ export default function StudentPage() {
 
     const studentLeftHandler = ({ userId: leavingUserId, username }: any) => {
       if (leavingUserId === userId) return;
-
       const sysMsg: ChatMessage = {
         userId: "system",
         username: "Command",
@@ -141,12 +144,23 @@ export default function StudentPage() {
       setMessages((prev) => [...prev, sysMsg]);
     };
 
-    const quizStartedHandler = (quizData: QuizData) => {
-      if (localStorage.getItem("joinedLobby") === quizData.id) {
-        setCurrentQuiz(quizData);
+    const quizStartedHandler = ({ lobbyId, name, duration }: any) => {
+      if (localStorage.getItem("joinedLobby") === lobbyId) {
+        setCurrentQuiz({
+          id: lobbyId,
+          name: name || "Mission",
+          duration: duration || 0,
+        });
+
         showNotification(
-          `Mission "${quizData.name}" has started! Duration: ${quizData.duration} minutes`
+          `Mission "${name || "Mission"}" has started! Duration: ${
+            duration || 0
+          } minutes`
         );
+      }
+
+      if (s) {
+        s.emit("get-lobbies");
       }
     };
 
@@ -158,9 +172,12 @@ export default function StudentPage() {
         showNotification("Mission completed. Thank you for your service!");
         localStorage.removeItem("joinedLobby");
       }
+
+      if (s) {
+        s.emit("get-lobbies");
+      }
     };
 
-    // Attach listeners
     s.on("lobby-updated", lobbyUpdatedHandler);
     s.on("lobby-created", lobbyCreatedHandler);
     s.on("join-success", joinSuccessHandler);
@@ -190,12 +207,26 @@ export default function StudentPage() {
     };
   }, []);
 
+  // ===== Helpers =====
   const showNotification = (msg: string) => setNotification(msg);
   const dismissNotification = () => setNotification("");
 
-  const joinLobby = (lobbyId: string) => {
+  const joinLobby = (lobbyId: string, status: string) => {
     if (!socket || isJoining || joinedLobby) return;
+
+    // ⛔ Don’t allow joining a finished mission
+    if (status === "FINISHED") {
+      alert("This mission has already ended. You cannot join.");
+      return;
+    }
+
+    if (status === "ONGOING") {
+      alert("This mission has already started. You cannot join.");
+      return;
+    }
+
     setIsJoining(lobbyId);
+
     socket.emit("join-lobby", {
       lobbyId,
       userId,
@@ -229,363 +260,771 @@ export default function StudentPage() {
 
   const sendMessage = () => {
     if (!chatInput.trim() || !joinedLobby || !socket) return;
-
     socket.emit("chat-message", {
       lobbyId: joinedLobby,
       userId,
       username: Cookies.get("user.username") || "Anonymous",
       message: chatInput,
     });
-
     setChatInput("");
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        duration: 0.6,
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { duration: 0.5 },
+    },
+  };
+
+  const cardVariants = {
+    hidden: { scale: 0.9, opacity: 0 },
+    visible: {
+      scale: 1,
+      opacity: 1,
+      transition: { duration: 0.4, ease: "easeOut" },
+    },
+    hover: {
+      scale: 1.02,
+      transition: { duration: 0.2 },
+    },
+  };
+
+  const messageVariants = {
+    hidden: { x: -20, opacity: 0 },
+    visible: { x: 0, opacity: 1, transition: { duration: 0.3 } },
   };
 
   // Quiz Active UI
   if (currentQuiz) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-700 text-white">
+      <motion.div
+        className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
+      >
         <div className="flex items-center justify-center min-h-screen">
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-12 text-center max-w-2xl mx-6 shadow-2xl">
-            <div className="mb-8">
-              <div className="p-6 bg-green-500 rounded-full w-24 h-24 mx-auto mb-6">
+          <motion.div
+            className="bg-white shadow-2xl border border-blue-200 rounded-3xl p-12 text-center max-w-2xl mx-6"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            <motion.div
+              className="mb-8"
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+            >
+              <motion.div
+                className="p-6 bg-main rounded-full w-24 h-24 mx-auto mb-6 shadow-lg"
+                whileHover={{ scale: 1.1 }}
+                animate={{ rotate: [0, 5, -5, 0] }}
+                transition={{
+                  rotate: { repeat: Infinity, duration: 3 },
+                  scale: { duration: 0.2 },
+                }}
+              >
                 <Trophy className="w-12 h-12 text-white mx-auto" />
-              </div>
-              <h1 className="text-4xl font-bold text-white mb-4">
+              </motion.div>
+              <h1 className="text-4xl font-bold text-gray-800 mb-4">
                 {currentQuiz.name}
               </h1>
-              <div className="flex items-center justify-center gap-2 text-green-200 mb-6">
+              <div className="flex items-center justify-center gap-2 text-blue-600 mb-6">
                 <Target className="w-5 h-5" />
-                <span className="text-xl">Mission Active</span>
+                <span className="text-xl font-semibold">Mission Active</span>
               </div>
-            </div>
-            
-            <div className="bg-white/10 rounded-2xl p-6 mb-6">
-              <div className="flex items-center justify-center gap-3 text-white">
-                <Clock className="w-6 h-6" />
-                <span className="text-2xl font-bold">{currentQuiz.duration} Minutes</span>
+            </motion.div>
+
+            <motion.div
+              className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.3, duration: 0.4 }}
+            >
+              <div className="flex items-center justify-center gap-3 text-gray-800">
+                <Clock className="w-6 h-6 text-blue-600" />
+                <span className="text-2xl font-bold">{countdown}</span>
               </div>
-              <p className="text-green-200 mt-2">Mission Duration</p>
-            </div>
-            
-            <div className="flex items-center justify-center gap-2 text-green-300">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <span>Training in progress...</span>
-            </div>
-          </div>
+              <p className="text-blue-600 mt-2 font-medium">Mission Duration</p>
+            </motion.div>
+
+            <motion.div
+              className="flex items-center justify-center gap-2 text-blue-600"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+            >
+              <motion.div
+                className="w-3 h-3 bg-blue-500 rounded-full"
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+              />
+              <span className="font-medium">Training in progress...</span>
+            </motion.div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Loading UI
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white flex items-center justify-center">
+      <motion.div
+        className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 flex items-center justify-center"
+        transition={{ duration: 0.4 }}
+      >
         <div className="text-center">
-          <div className="relative mb-8">
-            <Radar className="w-24 h-24 text-blue-300 mx-auto animate-spin opacity-60" />
-            <Plane className="w-12 h-12 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-          </div>
-          <h3 className="text-2xl font-bold text-white mb-2">
+          <motion.div
+            className="relative mb-8"
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+          >
+            <Radar className="w-24 h-24 text-blue-400 mx-auto opacity-60" />
+            <motion.div
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+            >
+              <Plane className="w-12 h-12 text-blue-600" />
+            </motion.div>
+          </motion.div>
+          <motion.h3
+            className="text-2xl font-bold text-gray-800 mb-2"
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
             Scanning for Missions...
-          </h3>
-          <p className="text-blue-200">Establishing connection with command center</p>
+          </motion.h3>
+          <motion.p
+            className="text-blue-600"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+          >
+            Establishing connection with command center
+          </motion.p>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white">
+    <motion.div
+      className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100"
+      variants={containerVariants}
+    >
       {/* Header */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent"></div>
+      <motion.div
+        className="relative overflow-hidden bg-white shadow-lg"
+        variants={itemVariants}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent"></div>
         <div className="relative px-6 py-8">
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-center gap-4 mb-2">
-              <div className="p-3 bg-blue-600 rounded-full">
+            <motion.div
+              className="flex items-center gap-4 mb-2"
+              whileHover={{ x: 5 }}
+              transition={{ duration: 0.2 }}
+            >
+              <motion.div
+                className="p-3 bg-main rounded-full shadow-lg"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+              >
                 <Shield className="w-8 h-8 text-white" />
-              </div>
+              </motion.div>
               <div>
-                <h1 className="text-4xl font-bold text-white">TNI AU Training Center</h1>
-                <p className="text-blue-200">Cadet Mission Dashboard</p>
+                <h1 className="text-4xl font-bold text-gray-800">AFTS T50</h1>
+                <p className="text-blue-600 font-medium">Lobby Quiz</p>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="px-6 pb-8">
+      <div className="px-6 py-8">
         <div className="max-w-7xl mx-auto">
           {/* Notifications */}
-          {notification && (
-            <div className="mb-6 bg-blue-500/20 border border-blue-400/30 rounded-xl p-4 backdrop-blur-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-500 rounded-lg">
-                    <MessageSquare className="w-4 h-4 text-white" />
+          <AnimatePresence>
+            {notification && (
+              <motion.div
+                className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-md"
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <motion.div
+                      className="p-2 bg-main rounded-lg"
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ repeat: Infinity, duration: 2 }}
+                    >
+                      <MessageSquare className="w-4 h-4 text-white" />
+                    </motion.div>
+                    <p className="text-gray-800 font-medium">{notification}</p>
                   </div>
-                  <p className="text-white font-medium">{notification}</p>
+                  <motion.button
+                    onClick={dismissNotification}
+                    className="text-blue-600 hover:text-blue-800 text-sm underline font-medium"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Dismiss
+                  </motion.button>
                 </div>
-                <button
-                  onClick={dismissNotification}
-                  className="text-blue-200 hover:text-white text-sm underline"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {isLeaving && (
-            <div className="mb-6 bg-yellow-500/20 border border-yellow-400/30 rounded-xl p-4 text-center backdrop-blur-sm">
-              <div className="flex items-center justify-center gap-2 text-yellow-200">
-                <div className="w-5 h-5 border-2 border-yellow-300/30 border-t-yellow-300 rounded-full animate-spin"></div>
-                <span>Aborting mission...</span>
-              </div>
-            </div>
-          )}
+          <AnimatePresence>
+            {isLeaving && (
+              <motion.div
+                className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center shadow-md"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex items-center justify-center gap-2 text-yellow-700">
+                  <motion.div
+                    className="w-5 h-5 border-2 border-yellow-400 border-t-yellow-600 rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      repeat: Infinity,
+                      duration: 1,
+                      ease: "linear",
+                    }}
+                  />
+                  <span className="font-medium">Aborting mission...</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <div className="grid gap-8 lg:grid-cols-3">
+          <motion.div
+            className={`grid gap-8 pt-10 ${
+              joinedLobby ? "lg:grid-cols-3" : "lg:grid-cols-1"
+            }`}
+            variants={containerVariants}
+          >
             {/* Missions Section */}
-            <div className="lg:col-span-3">
+            <div
+              className={`${
+                joinedLobby ? "lg:col-span-2" : "lg:col-span-3"
+              } px-10`}
+            >
               {lobbies.length === 0 ? (
-                <div className="text-center py-16">
+                <motion.div
+                  className="text-center py-16"
+                  variants={itemVariants}
+                >
                   <div className="mb-8">
-                    <Radar className="w-24 h-24 text-blue-300 mx-auto mb-6 opacity-50" />
-                    <h3 className="text-2xl font-bold text-white mb-2">No Active Missions</h3>
-                    <p className="text-blue-200 mb-6">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 4,
+                        ease: "linear",
+                      }}
+                    >
+                      <Radar className="w-24 h-24 text-blue-300 mx-auto mb-6 opacity-50" />
+                    </motion.div>
+                    <motion.h3
+                      className="text-2xl font-bold text-gray-800 mb-2"
+                      variants={itemVariants}
+                    >
+                      No Active Missions
+                    </motion.h3>
+                    <motion.p
+                      className="text-blue-600 mb-6"
+                      variants={itemVariants}
+                    >
                       Waiting for command to deploy training missions
-                    </p>
-                    <button
+                    </motion.p>
+                    <motion.button
                       onClick={refreshLobbies}
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2 mx-auto"
+                      className="bg-main hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg flex items-center gap-2 mx-auto"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      variants={itemVariants}
                     >
                       <RefreshCw className="w-5 h-5" />
                       Scan Again
-                    </button>
+                    </motion.button>
                   </div>
-                </div>
+                </motion.div>
               ) : (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                      <Target className="w-6 h-6 text-blue-300" />
+                <motion.div className="space-y-6" variants={containerVariants}>
+                  {/* Available Missions */}
+                  <motion.div
+                    className="flex items-center justify-between"
+                    variants={itemVariants}
+                  >
+                    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                      <Target className="w-6 h-6 text-blue-600" />
                       Available Missions
                     </h2>
-                    <button
+                    <motion.button
                       onClick={refreshLobbies}
-                      className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center gap-2"
+                      className="bg-white hover:bg-gray-50 border-2 border-blue-200 text-blue-600 px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                     >
                       <RefreshCw className="w-4 h-4" />
                       Refresh
-                    </button>
-                  </div>
-                  
-                  <div className="grid gap-6">
-                    {lobbies.map((lobby) => (
-                      <div
-                        key={lobby.id}
-                        className="group bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
-                      >
-                        {/* Mission Header */}
-                        <div className="flex items-start justify-between mb-6">
-                          <div className="flex items-center gap-4">
-                            <div className="p-3 bg-blue-500/20 rounded-full border border-blue-400/30">
-                              <Plane className="w-6 h-6 text-blue-300" />
-                            </div>
-                            <div>
-                              <h3 className="text-xl font-bold text-white group-hover:text-blue-200 transition-colors">
-                                {lobby.name}
-                              </h3>
-                              <p className="text-blue-300 text-sm">
-                                Commander: {lobby.instructor?.username || "Unknown"}
-                              </p>
-                              <p className="text-blue-400 text-xs">
-                                Mission ID: {lobby.id.slice(-8).toUpperCase()}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="px-3 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full text-xs font-semibold">
-                            STANDBY
-                          </div>
-                        </div>
+                    </motion.button>
+                  </motion.div>
 
-                        {/* Mission Stats */}
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                          <div className="bg-white/5 rounded-xl p-4">
-                            <div className="flex items-center gap-2 text-blue-200 mb-2">
-                              <Users className="w-4 h-4" />
-                              <span className="text-sm">Cadets</span>
-                            </div>
-                            <span className="text-2xl font-bold text-white">
-                              {lobby._count?.LobbyUser || 0}
-                            </span>
-                          </div>
-                          
-                          <div className="bg-white/5 rounded-xl p-4">
-                            <div className="flex items-center gap-2 text-blue-200 mb-2">
-                              <Clock className="w-4 h-4" />
-                              <span className="text-sm">Duration</span>
-                            </div>
-                            <span className="text-2xl font-bold text-white">
-                              {lobby.duration}m
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Mission Brief */}
-                        <div className="bg-white/5 rounded-xl p-4 mb-6">
-                          <h4 className="text-white font-semibold mb-2 flex items-center gap-2">
-                            <Star className="w-4 h-4 text-yellow-400" />
-                            Mission Briefing
-                          </h4>
-                          <p className="text-blue-200 text-sm">
-                            Training exercise designed to test tactical knowledge and decision-making skills under pressure.
-                          </p>
-                        </div>
-
-                        {/* Action Button */}
-                        <button
-                          className={`w-full py-4 px-6 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 ${
-                            joinedLobby === lobby.id
-                              ? "bg-green-500/20 text-green-300 border border-green-500/30 cursor-default"
-                              : isJoining === lobby.id
-                              ? "bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed"
-                              : joinedLobby
-                              ? "bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed"
-                              : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
-                          }`}
-                          onClick={() => joinLobby(lobby.id)}
-                          disabled={!!joinedLobby || isJoining === lobby.id}
+                  <motion.div
+                    className="grid gap-6"
+                    variants={containerVariants}
+                  >
+                    {lobbies
+                      .filter((lobby) => lobby.status !== "FINISHED")
+                      .map((lobby, index) => (
+                        <motion.div
+                          key={lobby.id}
+                          className="bg-white border-2 border-blue-100 rounded-2xl p-6 shadow-xl hover:shadow-2xl"
+                          variants={cardVariants}
+                          whileHover="hover"
+                          layout
+                          custom={index}
                         >
-                          {joinedLobby === lobby.id ? (
-                            <>
-                              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                              Enlisted - Awaiting Orders
-                            </>
-                          ) : isJoining === lobby.id ? (
-                            <>
-                              <div className="w-5 h-5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin"></div>
-                              Enlisting...
-                            </>
-                          ) : joinedLobby ? (
-                            <>
-                              <Shield className="w-5 h-5" />
-                              Already on Mission
-                            </>
-                          ) : (
-                            <>
-                              <Target className="w-5 h-5" />
-                              Enlist for Mission
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                          {/* Mission Header */}
+                          <motion.div
+                            className="flex items-start justify-between mb-6"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.1 }}
+                          >
+                            <div className="flex items-center gap-4">
+                              <motion.div
+                                className="p-3 bg-blue-50 rounded-full border-2 border-blue-200"
+                                whileHover={{ scale: 1.1 }}
+                              >
+                                <Plane className="w-6 h-6 text-blue-600" />
+                              </motion.div>
+                              <div>
+                                <h3 className="text-xl font-bold text-gray-800">
+                                  {lobby.name}
+                                </h3>
+                                <p className="text-blue-600 text-sm font-medium">
+                                  Commander:{" "}
+                                  {lobby.instructor?.username || "Unknown"}
+                                </p>
+                                <p className="text-gray-500 text-xs">
+                                  Mission ID: {lobby.id.slice(-8).toUpperCase()}
+                                </p>
+                              </div>
+                            </div>
+
+                            <motion.div
+                              className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                lobby.status === "ONGOING"
+                                  ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
+                                  : "bg-green-100 text-green-700 border border-green-300"
+                              }`}
+                              animate={{ scale: [1, 1.05, 1] }}
+                              transition={{ repeat: Infinity, duration: 2 }}
+                            >
+                              {lobby.status}
+                            </motion.div>
+                          </motion.div>
+
+                          {/* Mission Stats */}
+                          <motion.div
+                            className="grid grid-cols-2 gap-4 mb-6"
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: index * 0.1 + 0.2 }}
+                          >
+                            <motion.div
+                              className="bg-blue-50 border border-blue-100 rounded-xl p-4"
+                              whileHover={{ scale: 1.02 }}
+                            >
+                              <div className="flex items-center gap-2 text-blue-600 mb-2">
+                                <Users className="w-4 h-4" />
+                                <span className="text-sm font-medium">
+                                  Cadets
+                                </span>
+                              </div>
+                              <span className="text-2xl font-bold text-gray-800">
+                                {lobby._count?.LobbyUser || 0}
+                              </span>
+                            </motion.div>
+
+                            <motion.div
+                              className="bg-blue-50 border border-blue-100 rounded-xl p-4"
+                              whileHover={{ scale: 1.02 }}
+                            >
+                              <div className="flex items-center gap-2 text-blue-600 mb-2">
+                                <Clock className="w-4 h-4" />
+                                <span className="text-sm font-medium">
+                                  Duration
+                                </span>
+                              </div>
+                              <span className="text-2xl font-bold text-gray-800">
+                                {lobby.duration}m
+                              </span>
+                            </motion.div>
+                          </motion.div>
+
+                          {/* Mission Brief */}
+                          <motion.div
+                            className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6"
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: index * 0.1 + 0.3 }}
+                          >
+                            <h4 className="text-gray-800 font-semibold mb-2 flex items-center gap-2">
+                              <Star className="w-4 h-4 text-yellow-500" />
+                              Mission Briefing
+                            </h4>
+                            <p className="text-gray-600 text-sm">
+                              Training exercise designed to test tactical
+                              knowledge and decision-making skills under
+                              pressure.
+                            </p>
+                          </motion.div>
+
+                          {/* Action Button */}
+                          <motion.button
+                            className={`w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-3 border-2 ${
+                              joinedLobby === lobby.id
+                                ? "bg-green-50 text-green-700 border-green-200 cursor-default"
+                                : isJoining === lobby.id
+                                ? "bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed"
+                                : joinedLobby
+                                ? "bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed"
+                                : "bg-main hover:bg-blue-700 text-white border-blue-600 shadow-lg"
+                            }`}
+                            onClick={() => joinLobby(lobby.id, lobby.status)}
+                            disabled={!!joinedLobby || isJoining === lobby.id}
+                            whileHover={
+                              !joinedLobby && isJoining !== lobby.id
+                                ? { scale: 1.02 }
+                                : {}
+                            }
+                            whileTap={
+                              !joinedLobby && isJoining !== lobby.id
+                                ? { scale: 0.98 }
+                                : {}
+                            }
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: index * 0.1 + 0.4 }}
+                          >
+                            {joinedLobby === lobby.id ? (
+                              <>
+                                <motion.div
+                                  className="w-2 h-2 bg-green-500 rounded-full"
+                                  animate={{ scale: [1, 1.2, 1] }}
+                                  transition={{
+                                    repeat: Infinity,
+                                    duration: 1.5,
+                                  }}
+                                />
+                                Enlisted - Awaiting Orders
+                              </>
+                            ) : isJoining === lobby.id ? (
+                              <>
+                                <motion.div
+                                  className="w-5 h-5 border-2 border-gray-400 border-t-gray-600 rounded-full"
+                                  animate={{ rotate: 360 }}
+                                  transition={{
+                                    repeat: Infinity,
+                                    duration: 1,
+                                    ease: "linear",
+                                  }}
+                                />
+                                Enlisting...
+                              </>
+                            ) : joinedLobby ? (
+                              <>
+                                <Shield className="w-5 h-5" />
+                                Already on Mission
+                              </>
+                            ) : (
+                              <>
+                                <Target className="w-5 h-5" />
+                                Enlist for Mission
+                              </>
+                            )}
+                          </motion.button>
+                        </motion.div>
+                      ))}
+                  </motion.div>
+
+                  {/* Finished Missions */}
+                  <motion.div
+                    className="flex items-center justify-between"
+                    variants={itemVariants}
+                  >
+                    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                      <Target className="w-6 h-6 text-blue-600" />
+                      Finished Missions
+                    </h2>
+                    <motion.button
+                      onClick={refreshLobbies}
+                      className="bg-white hover:bg-gray-50 border-2 border-blue-200 text-blue-600 px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Refresh
+                    </motion.button>
+                  </motion.div>
+
+                  <motion.div
+                    className="grid gap-6"
+                    variants={containerVariants}
+                  >
+                    {lobbies
+                      .filter((lobby) => lobby.status === "FINISHED")
+                      .map((lobby, index) => (
+                        <motion.div
+                          key={lobby.id}
+                          className="bg-white border-2 border-blue-100 rounded-2xl p-6 shadow-xl hover:shadow-2xl"
+                          variants={cardVariants}
+                          whileHover="hover"
+                          layout
+                          custom={index}
+                        >
+                          {/* Finished Mission Header */}
+                          <motion.div
+                            className="flex items-start justify-between mb-6"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.1 }}
+                          >
+                            <div className="flex items-center gap-4">
+                              <motion.div
+                                className="p-3 bg-blue-50 rounded-full border-2 border-blue-200"
+                                whileHover={{ scale: 1.1 }}
+                              >
+                                <Plane className="w-6 h-6 text-blue-600" />
+                              </motion.div>
+                              <div>
+                                <h3 className="text-xl font-bold text-gray-800">
+                                  {lobby.name}
+                                </h3>
+                                <p className="text-blue-600 text-sm font-medium">
+                                  Commander:{" "}
+                                  {lobby.instructor?.username || "Unknown"}
+                                </p>
+                                <p className="text-gray-500 text-xs">
+                                  Mission ID: {lobby.id.slice(-8).toUpperCase()}
+                                </p>
+                              </div>
+                            </div>
+
+                            <motion.div className="px-3 py-1 bg-green-100 text-green-700 border border-green-300 rounded-full text-xs font-semibold">
+                              FINISHED
+                            </motion.div>
+                          </motion.div>
+
+                          {/* Stats same as above */}
+                          {/* ... keep your stats + brief ... */}
+
+                          {/* Finished button */}
+                          <motion.button
+                            className="w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-3 border-2 bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed"
+                            disabled
+                          >
+                            <Shield className="w-5 h-5" />
+                            Mission Completed
+                          </motion.button>
+                        </motion.div>
+                      ))}
+                  </motion.div>
+                </motion.div>
               )}
             </div>
 
             {/* Communication Panel */}
-            {joinedLobby && (
-              <div className="lg:col-span-3">
-                <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl shadow-xl overflow-hidden">
-                  {/* Chat Header */}
-                  <div className="bg-blue-600/30 border-b border-white/20 p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-500 rounded-lg">
-                          <MessageSquare className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-white">Mission Comms</h3>
-                          <p className="text-blue-200 text-sm">Secure Channel</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={leaveLobby}
-                        className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 hover:text-red-200 px-3 py-2 rounded-lg text-sm transition-all duration-300 flex items-center gap-2"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Abort
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Messages */}
-                  <div className="h-80 overflow-y-auto p-4 space-y-3">
-                    {messages.map((msg, idx) => (
-                      <div
-                        key={idx}
-                        className={`${
-                          msg.type === "system"
-                            ? "text-center"
-                            : msg.userId === userId
-                            ? "ml-4"
-                            : "mr-4"
-                        }`}
-                      >
-                        {msg.type === "system" ? (
-                          <div className="bg-white/5 rounded-lg px-3 py-2 text-center">
-                            <span className={`text-xs font-medium ${
-                              msg.color === "red" ? "text-red-300" : "text-green-300"
-                            }`}>
-                              {msg.message}
-                            </span>
-                            <div className="text-xs text-gray-400 mt-1">
-                              {new Date(msg.timestamp).toLocaleTimeString()}
-                            </div>
+            <AnimatePresence>
+              {joinedLobby && (
+                <motion.div
+                  className="lg:col-span-1"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <motion.div
+                    className="bg-white border-2 border-blue-100 rounded-2xl shadow-xl overflow-hidden"
+                    layoutId="communication-panel"
+                  >
+                    {/* Chat Header */}
+                    <motion.div
+                      className="bg-gradient-to-r from-blue-600 to-blue-700 border-b border-blue-200 p-6"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <motion.div
+                            className="p-2 bg-white/20 rounded-lg"
+                            whileHover={{ scale: 1.1 }}
+                          >
+                            <MessageSquare className="w-5 h-5 text-white" />
+                          </motion.div>
+                          <div>
+                            <h3 className="text-lg font-bold text-white">
+                              Mission Comms
+                            </h3>
+                            <p className="text-blue-100 text-sm">
+                              Secure Channel
+                            </p>
                           </div>
-                        ) : (
-                          <div className={`max-w-xs ${
-                            msg.userId === userId 
-                              ? "ml-auto bg-blue-500/20 border border-blue-400/30" 
-                              : "bg-white/10 border border-white/20"
-                          } rounded-xl p-3`}>
-                            <div className="flex items-center gap-2 mb-1">
-                              <User className="w-3 h-3 text-blue-300" />
-                              <span className="text-xs font-semibold text-blue-200">
-                                {msg.username}
-                              </span>
-                            </div>
-                            <p className="text-sm text-white">{msg.message}</p>
-                            <div className="text-xs text-gray-400 mt-1">
-                              {new Date(msg.timestamp).toLocaleTimeString()}
-                            </div>
-                          </div>
-                        )}
+                        </div>
+                        <motion.button
+                          onClick={leaveLobby}
+                          className="bg-red-100 hover:bg-red-200 border border-red-300 text-red-700 hover:text-red-800 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Abort
+                        </motion.button>
                       </div>
-                    ))}
-                  </div>
+                    </motion.div>
 
-                  {/* Message Input */}
-                  <div className="border-t border-white/20 p-4">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                        placeholder="Send message to team..."
-                        className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                      />
-                      <button
-                        onClick={sendMessage}
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+                    {/* Messages */}
+                    <motion.div
+                      className="h-80 overflow-y-auto p-4 space-y-3 bg-gray-50"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <AnimatePresence>
+                        {messages.map((msg, idx) => (
+                          <motion.div
+                            key={idx}
+                            className={`${
+                              msg.type === "system"
+                                ? "text-center"
+                                : msg.userId === userId
+                                ? "ml-4"
+                                : "mr-4"
+                            }`}
+                            variants={messageVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="hidden"
+                            layout
+                          >
+                            {msg.type === "system" ? (
+                              <motion.div
+                                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-center"
+                                whileHover={{ scale: 1.02 }}
+                              >
+                                <span
+                                  className={`text-xs font-medium ${
+                                    msg.color === "red"
+                                      ? "text-red-600"
+                                      : "text-green-600"
+                                  }`}
+                                >
+                                  {msg.message}
+                                </span>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {new Date(msg.timestamp).toLocaleTimeString()}
+                                </div>
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                className={`max-w-xs ${
+                                  msg.userId === userId
+                                    ? "ml-auto bg-main text-white border border-blue-600"
+                                    : "bg-white border border-gray-200 text-gray-800"
+                                } rounded-xl p-3 shadow-sm`}
+                                whileHover={{ scale: 1.02 }}
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <User className="w-3 h-3" />
+                                  <span className="text-xs font-semibold opacity-80">
+                                    {msg.username}
+                                  </span>
+                                </div>
+                                <p className="text-sm">{msg.message}</p>
+                                <div className="text-xs opacity-60 mt-1">
+                                  {new Date(msg.timestamp).toLocaleTimeString()}
+                                </div>
+                              </motion.div>
+                            )}
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </motion.div>
+
+                    {/* Message Input */}
+                    <motion.div
+                      className="border-t border-gray-200 p-4 bg-white"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <div className="flex gap-2">
+                        <motion.input
+                          type="text"
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                          placeholder="Send message to team..."
+                          className="flex-1 bg-gray-50 border-2 border-gray-200 rounded-lg px-4 py-2 text-gray-800 placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          whileFocus={{ scale: 1.01 }}
+                          transition={{ duration: 0.2 }}
+                        />
+                        <motion.button
+                          onClick={sendMessage}
+                          className="bg-main hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          <Send className="w-4 h-4" />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         </div>
       </div>
-    </div>
+
+      <style jsx global>{`
+        :root {
+          --bg-main: #2563eb; /* blue-600 */
+        }
+        .bg-main {
+          background-color: var(--bg-main);
+        }
+        .border-main {
+          border-color: var(--bg-main);
+        }
+        .text-main {
+          color: var(--bg-main);
+        }
+      `}</style>
+    </motion.div>
   );
 }
