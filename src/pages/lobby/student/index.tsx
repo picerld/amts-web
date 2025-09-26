@@ -4,6 +4,21 @@ import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
 import { getSocket } from "@/utils/socket";
 import { LobbyData } from "@/types/lobby";
+import { 
+  Plane, 
+  Users, 
+  Clock, 
+  Shield, 
+  Target, 
+  MessageSquare, 
+  Send, 
+  LogOut, 
+  RefreshCw,
+  User,
+  Star,
+  Trophy,
+  Radar
+} from "lucide-react";
 
 type QuizData = {
   id: string;
@@ -51,7 +66,7 @@ export default function StudentPage() {
 
     s.emit("get-lobbies");
 
-    // 🔹 Lobby events
+    // Event handlers
     const lobbyUpdatedHandler = (updatedLobbies: LobbyData[]) => {
       setLobbies(updatedLobbies.filter((l) => l.status === "WAITING"));
       setIsLoading(false);
@@ -59,7 +74,7 @@ export default function StudentPage() {
 
     const lobbyCreatedHandler = (newLobby: LobbyData) => {
       setLobbies((prev) => [...prev, newLobby]);
-      showNotification(`New lobby "${newLobby.name}" is available!`);
+      showNotification(`New mission "${newLobby.name}" is available!`);
     };
 
     const joinSuccessHandler = ({ lobbyId, lobbyName }: any) => {
@@ -67,7 +82,7 @@ export default function StudentPage() {
       setIsJoining(null);
       localStorage.setItem("joinedLobby", lobbyId);
       s.emit("get-chats", lobbyId);
-      showNotification(`Successfully joined "${lobbyName}"!`);
+      showNotification(`Successfully joined mission "${lobbyName}"!`);
     };
 
     const joinErrorHandler = ({ message }: any) => {
@@ -82,7 +97,7 @@ export default function StudentPage() {
       setMessages([]);
       localStorage.removeItem("joinedLobby");
       setIsLeaving(false);
-      showNotification("Left the lobby successfully");
+      showNotification("Left the mission successfully");
     };
 
     const lobbyDeletedHandler = ({ lobbyId }: any) => {
@@ -91,22 +106,20 @@ export default function StudentPage() {
         setJoinedLobby(null);
         setCurrentQuiz(null);
         setMessages([]);
-        showNotification("The lobby has been deleted by the instructor");
+        showNotification("The mission has been cancelled by command");
         localStorage.removeItem("joinedLobby");
       }
     };
 
-    // 🔹 Chat events
     const chatHistoryHandler = (msgs: ChatMessage[]) => setMessages(msgs);
     const chatMessageHandler = (msg: ChatMessage) =>
       setMessages((prev) => [...prev, msg]);
 
-    // 🔹 System messages for joins/leaves
     const studentJoinedHandler = ({ username }: any) => {
       const sysMsg: ChatMessage = {
         userId: "system",
-        username: "System",
-        message: `${username} joined the lobby.`,
+        username: "Command",
+        message: `${username} has joined the mission.`,
         timestamp: new Date().toISOString(),
         type: "system",
         color: "green",
@@ -115,12 +128,12 @@ export default function StudentPage() {
     };
 
     const studentLeftHandler = ({ userId: leavingUserId, username }: any) => {
-      if (leavingUserId === userId) return; // <-- ignore own leave
+      if (leavingUserId === userId) return;
 
       const sysMsg: ChatMessage = {
         userId: "system",
-        username: "System",
-        message: `${username} left the lobby.`,
+        username: "Command",
+        message: `${username} has left the mission.`,
         timestamp: new Date().toISOString(),
         type: "system",
         color: "red",
@@ -128,12 +141,11 @@ export default function StudentPage() {
       setMessages((prev) => [...prev, sysMsg]);
     };
 
-    // 🔹 Quiz events
     const quizStartedHandler = (quizData: QuizData) => {
       if (localStorage.getItem("joinedLobby") === quizData.id) {
         setCurrentQuiz(quizData);
         showNotification(
-          `Quiz "${quizData.name}" has started! Duration: ${quizData.duration} minutes`
+          `Mission "${quizData.name}" has started! Duration: ${quizData.duration} minutes`
         );
       }
     };
@@ -143,7 +155,7 @@ export default function StudentPage() {
         setCurrentQuiz(null);
         setJoinedLobby(null);
         setMessages([]);
-        showNotification("Quiz has ended. Thank you for participating!");
+        showNotification("Mission completed. Thank you for your service!");
         localStorage.removeItem("joinedLobby");
       }
     };
@@ -162,7 +174,6 @@ export default function StudentPage() {
     s.on("quiz-started", quizStartedHandler);
     s.on("quiz-ended", quizEndedHandler);
 
-    // cleanup
     return () => {
       s.off("lobby-updated", lobbyUpdatedHandler);
       s.off("lobby-created", lobbyCreatedHandler);
@@ -194,7 +205,7 @@ export default function StudentPage() {
 
   const leaveLobby = () => {
     if (!socket || !joinedLobby) return;
-    if (window.confirm("Are you sure you want to leave this lobby?")) {
+    if (window.confirm("Are you sure you want to abort this mission?")) {
       socket.emit("leave-lobby", {
         lobbyId: joinedLobby,
         userId,
@@ -208,7 +219,12 @@ export default function StudentPage() {
     if (!socket) return;
     setIsLoading(true);
     socket.emit("get-lobbies");
-    showNotification("Refreshing lobbies...");
+    showNotification("Scanning for new missions...");
+
+    setTimeout(() => {
+      setIsLoading(false);
+      dismissNotification();
+    }, 3000);
   };
 
   const sendMessage = () => {
@@ -224,198 +240,352 @@ export default function StudentPage() {
     setChatInput("");
   };
 
-  // 🔹 Quiz UI
+  // Quiz Active UI
   if (currentQuiz) {
     return (
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-          <h1 className="text-2xl font-bold text-green-800">
-            {currentQuiz.name}
-          </h1>
-          <p className="text-green-600 mb-4">Quiz is now active!</p>
-          <p className="text-green-800 font-semibold">
-            Duration: {currentQuiz.duration} min
-          </p>
+      <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-700 text-white">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-12 text-center max-w-2xl mx-6 shadow-2xl">
+            <div className="mb-8">
+              <div className="p-6 bg-green-500 rounded-full w-24 h-24 mx-auto mb-6">
+                <Trophy className="w-12 h-12 text-white mx-auto" />
+              </div>
+              <h1 className="text-4xl font-bold text-white mb-4">
+                {currentQuiz.name}
+              </h1>
+              <div className="flex items-center justify-center gap-2 text-green-200 mb-6">
+                <Target className="w-5 h-5" />
+                <span className="text-xl">Mission Active</span>
+              </div>
+            </div>
+            
+            <div className="bg-white/10 rounded-2xl p-6 mb-6">
+              <div className="flex items-center justify-center gap-3 text-white">
+                <Clock className="w-6 h-6" />
+                <span className="text-2xl font-bold">{currentQuiz.duration} Minutes</span>
+              </div>
+              <p className="text-green-200 mt-2">Mission Duration</p>
+            </div>
+            
+            <div className="flex items-center justify-center gap-2 text-green-300">
+              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+              <span>Training in progress...</span>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // 🔹 Loading UI
+  // Loading UI
   if (isLoading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto text-center">
-        <div className="text-gray-400 text-8xl mb-6">📚</div>
-        <h3 className="text-xl font-semibold text-gray-600 mb-2">
-          Loading lobbies...
-        </h3>
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="relative mb-8">
+            <Radar className="w-24 h-24 text-blue-300 mx-auto animate-spin opacity-60" />
+            <Plane className="w-12 h-12 text-white absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <h3 className="text-2xl font-bold text-white mb-2">
+            Scanning for Missions...
+          </h3>
+          <p className="text-blue-200">Establishing connection with command center</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {notification && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex justify-between items-center">
-          <p className="text-blue-800">{notification}</p>
-          <button
-            onClick={dismissNotification}
-            className="text-blue-600 hover:text-blue-800 text-sm underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {isLeaving && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-center">
-          Leaving lobby...
-        </div>
-      )}
-
-      {/* Lobbies Section */}
-      {lobbies.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-gray-400 text-8xl mb-6">📚</div>
-          <h3 className="text-xl font-semibold text-gray-600 mb-2">
-            No active lobbies
-          </h3>
-          <p className="text-gray-500 mb-6">
-            Wait for your teacher to create a quiz lobby
-          </p>
-          <button
-            onClick={refreshLobbies}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium"
-          >
-            Check Again
-          </button>
-        </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {lobbies.map((lobby) => (
-            <div
-              key={lobby.id}
-              className="bg-white border rounded-xl p-6 shadow-sm"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg text-gray-800 mb-1">
-                    {lobby.name}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    by {lobby.instructor?.username || "Unknown"}
-                  </p>
-                </div>
-                <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-medium">
-                  {lobby.status}
-                </span>
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white">
+      {/* Header */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent"></div>
+        <div className="relative px-6 py-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 mb-2">
+              <div className="p-3 bg-blue-600 rounded-full">
+                <Shield className="w-8 h-8 text-white" />
               </div>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Duration:</span>
-                  <span className="font-medium text-gray-800">
-                    {lobby.duration} min
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Students:</span>
-                  <span className="font-medium text-blue-600">
-                    {lobby._count?.LobbyUser || 0}
-                  </span>
-                </div>
+              <div>
+                <h1 className="text-4xl font-bold text-white">TNI AU Training Center</h1>
+                <p className="text-blue-200">Cadet Mission Dashboard</p>
               </div>
-
-              <button
-                className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-                  joinedLobby === lobby.id
-                    ? "bg-green-100 text-green-800 cursor-default ring-2 ring-green-300"
-                    : isJoining === lobby.id
-                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                    : joinedLobby
-                    ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-                    : "bg-blue-500 hover:bg-blue-600 text-white hover:shadow-md transform hover:-translate-y-0.5"
-                }`}
-                onClick={() => joinLobby(lobby.id)}
-                disabled={!!joinedLobby || isJoining === lobby.id}
-              >
-                {joinedLobby === lobby.id
-                  ? "Joined - Waiting for quiz"
-                  : isJoining === lobby.id
-                  ? "Joining..."
-                  : joinedLobby
-                  ? "Already in another lobby"
-                  : "Join Lobby"}
-              </button>
             </div>
-          ))}
-        </div>
-      )}
-
-      {joinedLobby && (
-        <div className="mt-10 bg-white border rounded-xl shadow-sm p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">Lobby Chat</h2>
-            <button
-              onClick={leaveLobby}
-              className="text-red-500 hover:text-red-700 text-sm underline"
-            >
-              Leave Lobby
-            </button>
           </div>
+        </div>
+      </div>
 
-          <div className="flex-1 overflow-y-auto border p-2 rounded bg-gray-50 h-64 mb-3">
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`mb-1 text-sm ${
-                  msg.type === "system"
-                    ? msg.color === "red"
-                      ? "text-red-500 italic"
-                      : "text-green-500 italic"
-                    : "text-gray-800"
-                }`}
-              >
-                {msg.type === "system" ? (
-                  <>
-                    <span>{msg.message}</span>
-                    <span className="text-gray-400 text-xs ml-2">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="font-medium text-blue-600">
-                      {msg.username}
-                    </span>
-                    <span>: {msg.message}</span>
-                    <span className="text-gray-400 text-xs ml-2">
-                      {new Date(msg.timestamp).toLocaleTimeString()}
-                    </span>
-                  </>
-                )}
+      <div className="px-6 pb-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Notifications */}
+          {notification && (
+            <div className="mb-6 bg-blue-500/20 border border-blue-400/30 rounded-xl p-4 backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500 rounded-lg">
+                    <MessageSquare className="w-4 h-4 text-white" />
+                  </div>
+                  <p className="text-white font-medium">{notification}</p>
+                </div>
+                <button
+                  onClick={dismissNotification}
+                  className="text-blue-200 hover:text-white text-sm underline"
+                >
+                  Dismiss
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              placeholder="Type a message..."
-              className="flex-1 border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={sendMessage}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"
-            >
-              Send
-            </button>
+          {isLeaving && (
+            <div className="mb-6 bg-yellow-500/20 border border-yellow-400/30 rounded-xl p-4 text-center backdrop-blur-sm">
+              <div className="flex items-center justify-center gap-2 text-yellow-200">
+                <div className="w-5 h-5 border-2 border-yellow-300/30 border-t-yellow-300 rounded-full animate-spin"></div>
+                <span>Aborting mission...</span>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-8 lg:grid-cols-3">
+            {/* Missions Section */}
+            <div className="lg:col-span-3">
+              {lobbies.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="mb-8">
+                    <Radar className="w-24 h-24 text-blue-300 mx-auto mb-6 opacity-50" />
+                    <h3 className="text-2xl font-bold text-white mb-2">No Active Missions</h3>
+                    <p className="text-blue-200 mb-6">
+                      Waiting for command to deploy training missions
+                    </p>
+                    <button
+                      onClick={refreshLobbies}
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2 mx-auto"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                      Scan Again
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                      <Target className="w-6 h-6 text-blue-300" />
+                      Available Missions
+                    </h2>
+                    <button
+                      onClick={refreshLobbies}
+                      className="bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Refresh
+                    </button>
+                  </div>
+                  
+                  <div className="grid gap-6">
+                    {lobbies.map((lobby) => (
+                      <div
+                        key={lobby.id}
+                        className="group bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02]"
+                      >
+                        {/* Mission Header */}
+                        <div className="flex items-start justify-between mb-6">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-500/20 rounded-full border border-blue-400/30">
+                              <Plane className="w-6 h-6 text-blue-300" />
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-white group-hover:text-blue-200 transition-colors">
+                                {lobby.name}
+                              </h3>
+                              <p className="text-blue-300 text-sm">
+                                Commander: {lobby.instructor?.username || "Unknown"}
+                              </p>
+                              <p className="text-blue-400 text-xs">
+                                Mission ID: {lobby.id.slice(-8).toUpperCase()}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="px-3 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full text-xs font-semibold">
+                            STANDBY
+                          </div>
+                        </div>
+
+                        {/* Mission Stats */}
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                          <div className="bg-white/5 rounded-xl p-4">
+                            <div className="flex items-center gap-2 text-blue-200 mb-2">
+                              <Users className="w-4 h-4" />
+                              <span className="text-sm">Cadets</span>
+                            </div>
+                            <span className="text-2xl font-bold text-white">
+                              {lobby._count?.LobbyUser || 0}
+                            </span>
+                          </div>
+                          
+                          <div className="bg-white/5 rounded-xl p-4">
+                            <div className="flex items-center gap-2 text-blue-200 mb-2">
+                              <Clock className="w-4 h-4" />
+                              <span className="text-sm">Duration</span>
+                            </div>
+                            <span className="text-2xl font-bold text-white">
+                              {lobby.duration}m
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Mission Brief */}
+                        <div className="bg-white/5 rounded-xl p-4 mb-6">
+                          <h4 className="text-white font-semibold mb-2 flex items-center gap-2">
+                            <Star className="w-4 h-4 text-yellow-400" />
+                            Mission Briefing
+                          </h4>
+                          <p className="text-blue-200 text-sm">
+                            Training exercise designed to test tactical knowledge and decision-making skills under pressure.
+                          </p>
+                        </div>
+
+                        {/* Action Button */}
+                        <button
+                          className={`w-full py-4 px-6 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 ${
+                            joinedLobby === lobby.id
+                              ? "bg-green-500/20 text-green-300 border border-green-500/30 cursor-default"
+                              : isJoining === lobby.id
+                              ? "bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed"
+                              : joinedLobby
+                              ? "bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed"
+                              : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
+                          }`}
+                          onClick={() => joinLobby(lobby.id)}
+                          disabled={!!joinedLobby || isJoining === lobby.id}
+                        >
+                          {joinedLobby === lobby.id ? (
+                            <>
+                              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                              Enlisted - Awaiting Orders
+                            </>
+                          ) : isJoining === lobby.id ? (
+                            <>
+                              <div className="w-5 h-5 border-2 border-gray-400/30 border-t-gray-400 rounded-full animate-spin"></div>
+                              Enlisting...
+                            </>
+                          ) : joinedLobby ? (
+                            <>
+                              <Shield className="w-5 h-5" />
+                              Already on Mission
+                            </>
+                          ) : (
+                            <>
+                              <Target className="w-5 h-5" />
+                              Enlist for Mission
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Communication Panel */}
+            {joinedLobby && (
+              <div className="lg:col-span-3">
+                <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl shadow-xl overflow-hidden">
+                  {/* Chat Header */}
+                  <div className="bg-blue-600/30 border-b border-white/20 p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-500 rounded-lg">
+                          <MessageSquare className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-white">Mission Comms</h3>
+                          <p className="text-blue-200 text-sm">Secure Channel</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={leaveLobby}
+                        className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-300 hover:text-red-200 px-3 py-2 rounded-lg text-sm transition-all duration-300 flex items-center gap-2"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        Abort
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="h-80 overflow-y-auto p-4 space-y-3">
+                    {messages.map((msg, idx) => (
+                      <div
+                        key={idx}
+                        className={`${
+                          msg.type === "system"
+                            ? "text-center"
+                            : msg.userId === userId
+                            ? "ml-4"
+                            : "mr-4"
+                        }`}
+                      >
+                        {msg.type === "system" ? (
+                          <div className="bg-white/5 rounded-lg px-3 py-2 text-center">
+                            <span className={`text-xs font-medium ${
+                              msg.color === "red" ? "text-red-300" : "text-green-300"
+                            }`}>
+                              {msg.message}
+                            </span>
+                            <div className="text-xs text-gray-400 mt-1">
+                              {new Date(msg.timestamp).toLocaleTimeString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`max-w-xs ${
+                            msg.userId === userId 
+                              ? "ml-auto bg-blue-500/20 border border-blue-400/30" 
+                              : "bg-white/10 border border-white/20"
+                          } rounded-xl p-3`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <User className="w-3 h-3 text-blue-300" />
+                              <span className="text-xs font-semibold text-blue-200">
+                                {msg.username}
+                              </span>
+                            </div>
+                            <p className="text-sm text-white">{msg.message}</p>
+                            <div className="text-xs text-gray-400 mt-1">
+                              {new Date(msg.timestamp).toLocaleTimeString()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Message Input */}
+                  <div className="border-t border-white/20 p-4">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                        placeholder="Send message to team..."
+                        className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-blue-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                      />
+                      <button
+                        onClick={sendMessage}
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
