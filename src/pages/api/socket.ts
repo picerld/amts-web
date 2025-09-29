@@ -97,48 +97,33 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
 socket.on("join-lobby", async ({ lobbyId, userId, username }) => {
   try {
-    socket.join(lobbyId);
+    const lobby = await prisma.examLobby.findUnique({ where: { id: lobbyId } });
+    if (!lobby) {
+      socket.emit("join-error", { message: "Mission does not exist." });
+      return;
+    }
 
-    const lobby = await prisma.examLobby.findUnique({
-      where: { id: lobbyId },
-    });
+    if (lobby.status !== "WAITING") {
+      socket.emit("join-error", { message: "Mission already started or finished." });
+      return;
+    }
 
-    // Masukin user kalau belum ada
-    const existing = await prisma.lobbyUser.findFirst({
-      where: { lobbyId, userId },
-    });
+    const existing = await prisma.lobbyUser.findFirst({ where: { lobbyId, userId } });
     if (!existing) {
       await prisma.lobbyUser.create({
-        data: { lobbyId, userId, joinedAt: new Date() },
+        data: { lobbyId, userId },
       });
     }
 
-    // Konfirmasi join
-    socket.emit("join-success", { lobbyId, lobbyName: lobby?.name });
+    socket.join(lobbyId); // join the socket room
 
-    // Broadcast join ke member lain
-    socket.to(lobbyId).emit("student-joined", { lobbyId, userId, username });
+    // ✅ Notify the joining client
+    io.to(socket.id).emit("join-success", { lobbyId, lobbyName: lobby.name });
 
-    // Kalau lobby lagi jalan (ONGOING), hitung waktu tersisa
-    if (lobby?.status === "ONGOING" && lobby.startTime) {
-      const elapsed = Math.floor(
-        (Date.now() - lobby.startTime.getTime()) / 1000 / 60
-      );
-      const remaining = lobby.duration - elapsed;
+    // ✅ Notify other clients in the lobby
+    socket.to(lobbyId).emit("student-joined", { userId, username });
 
-      if (remaining > 0) {
-        socket.emit("quiz-started", {
-          id: lobby.id,
-          name: lobby.name,
-          duration: lobby.duration,
-          remaining, // ⬅️ penting, buat student baru
-        });
-      } else {
-        socket.emit("quiz-ended", { lobbyId: lobby.id });
-      }
-    }
-
-    // Update semua lobby
+    // ✅ Update all clients with new lobby counts
     const allLobbies = await prisma.examLobby.findMany({
       include: {
         instructor: true,
@@ -146,9 +131,9 @@ socket.on("join-lobby", async ({ lobbyId, userId, username }) => {
       },
     });
     io.emit("lobby-updated", allLobbies);
-  } catch (err) {
-    console.error("Error adding user to lobby:", err);
-    socket.emit("join-error", { message: "Could not join lobby" });
+  } catch (err: any) {
+    console.error("Join error:", err);
+    socket.emit("join-error", { message: "Failed to join the mission." });
   }
 });
 

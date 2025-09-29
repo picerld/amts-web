@@ -53,6 +53,7 @@ export default function TeacherPage() {
     });
 
     s.on("quiz-started", (startedLobby: LobbyData) => {
+      console.log("Quiz started event received for", startedLobby.id);
       if (startedLobby.instructorId === instructorId) {
         setLobbies((prev) =>
           prev.map((l) =>

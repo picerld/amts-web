@@ -60,6 +60,8 @@ model LobbyUser {
   finished Boolean   @default(false)
   user     User      @relation(fields: [userId], references: [id])
   lobby    ExamLobby @relation(fields: [lobbyId], references: [id])
+  
+  @@unique([userId, lobbyId], name: "unique_user_lobby")
 }
 
 model UserGrade {

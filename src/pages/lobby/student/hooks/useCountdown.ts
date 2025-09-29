@@ -1,26 +1,38 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 
-export function useCountdown(durationInMinutes: number) {
-  const [timeLeft, setTimeLeft] = useState(durationInMinutes * 60);
+export function useCountdown(initialMinutes: number) {
+  const [timeLeft, setTimeLeft] = useState(initialMinutes * 60); // Convert minutes to seconds
 
   useEffect(() => {
-    setTimeLeft(durationInMinutes * 60);
-  }, [durationInMinutes]);
+    if (initialMinutes <= 0) return;
+    
+    setTimeLeft(initialMinutes * 60);
+  }, [initialMinutes]);
 
   useEffect(() => {
     if (timeLeft <= 0) return;
 
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    const intervalId = setInterval(() => {
+      setTimeLeft((prevTime) => {
+        if (prevTime <= 1) {
+          clearInterval(intervalId);
+          return 0;
+        }
+        return prevTime - 1;
+      });
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(intervalId);
   }, [timeLeft]);
 
-  if (durationInMinutes === 0) return "0:00";
+  // Format time as MM:SS
+  const formatTime = (seconds: number): string => {
+    if (seconds <= 0) return "00:00";
+    
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  return formatTime(timeLeft);
 }
