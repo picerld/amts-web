@@ -10,6 +10,7 @@ import {
   NotebookPen,
   Album,
   Loader2,
+  Gamepad,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { ModeToggle } from "../ui/mode-toggle";
@@ -73,6 +74,7 @@ export default function GuardedLayout({
     { name: "Student List", href: "/students", icon: UsersRound },
     { name: "Subject", href: "/subjects", icon: NotebookPen },
     { name: "Report", href: "/reports", icon: Album },
+    { name: "Lobby", href: "/lobby", icon: Gamepad },
   ];
 
   const updatedNavItem = navItem.map((item) => ({
@@ -86,6 +88,10 @@ export default function GuardedLayout({
 
   const group2 = updatedNavItem.filter((item) =>
     ["Dashboard", "Instructor List", "Student List"].includes(item.name)
+  );
+
+  const group3 = updatedNavItem.filter((item) =>
+    ["Lobby"].includes(item.name)
   );
 
   const logoutMutation = trpc.auth.logout.useMutation({
@@ -193,6 +199,22 @@ export default function GuardedLayout({
 
               <div className="space-y-2">
                 {group1.map((item) => (
+                  <NavItem key={item.name} item={item} />
+                ))}
+              </div>
+            </div>
+
+            <div className="px-4">
+              {!sidebarCollapsed && (
+                <div className="mb-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground opacity-70 px-2">
+                    Quizz
+                  </h3>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {group3.map((item) => (
                   <NavItem key={item.name} item={item} />
                 ))}
               </div>

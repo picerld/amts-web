@@ -284,14 +284,6 @@ export default function StudentQuizStart() {
                   whileHover={{ x: 5 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <motion.button
-                    onClick={goBackToChat}
-                    className="p-2 bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-600 border border-blue-300"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </motion.button>
                   <motion.div
                     className="p-3 bg-main rounded-full shadow-lg"
                     whileHover={{ scale: 1.1 }}
@@ -461,7 +453,7 @@ export default function StudentQuizStart() {
                 </motion.div>
 
                 {/* Navigation Buttons */}
-                <motion.div
+                {/* <motion.div
                   className="flex items-center justify-center gap-4 mt-8"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -476,7 +468,7 @@ export default function StudentQuizStart() {
                     <ArrowLeft className="w-4 h-4" />
                     Return to Comms
                   </motion.button>
-                </motion.div>
+                </motion.div> */}
               </motion.div>
             </div>
           </div>

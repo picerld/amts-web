@@ -10,6 +10,7 @@ import { Poppins } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SidebarProvider } from "@/components/container/SidebarContext";
 import { getSocket } from "@/utils/socket";
+import { NotificationProvider } from "@/features/quizz/context/NotificationContext";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -49,7 +50,9 @@ function MyApp({ Component, pageProps }: AppProps) {
         >
           <div className={poppins.className}>
             <SidebarProvider>
-              <Component {...pageProps} />
+              <NotificationProvider>
+                <Component {...pageProps} />
+              </NotificationProvider>
             </SidebarProvider>
             <Toaster />
           </div>

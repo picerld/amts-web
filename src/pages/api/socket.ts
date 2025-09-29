@@ -37,36 +37,54 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         socket.emit("lobby-updated", allLobbies);
       });
 
-      socket.on("create-lobby", async (data) => {
-        const newLobby = await prisma.examLobby.create({
-          data: {
-            id: data.id,
-            name: data.name,
-            instructorId: data.instructorId,
-            duration: data.duration,
-            status: "WAITING",
-          },
-        });
+      socket.on(
+        "create-lobby",
+        async (
+          data,
+          callback: (res: {
+            success: boolean;
+            lobby?: any;
+            message?: string;
+          }) => void
+        ) => {
+          try {
+            const newLobby = await prisma.examLobby.create({
+              data: {
+                id: data.id,
+                name: data.name,
+                instructorId: data.instructorId,
+                duration: data.duration,
+                status: "WAITING",
+              },
+            });
 
-        const lobbyData = await prisma.examLobby.findUnique({
-          where: { id: newLobby.id },
-          include: {
-            instructor: true,
-            _count: { select: { LobbyUser: true } },
-          },
-        });
+            const lobbyData = await prisma.examLobby.findUnique({
+              where: { id: newLobby.id },
+              include: {
+                instructor: true,
+                _count: { select: { LobbyUser: true } },
+              },
+            });
 
-        io.emit("lobby-created", lobbyData);
-        const allLobbies = await prisma.examLobby.findMany({
-          include: {
-            instructor: true,
-            _count: { select: { LobbyUser: true } },
-          },
-        });
-        io.emit("lobby-updated", allLobbies);
+            // Broadcast to all clients
+            io.emit("lobby-created", lobbyData);
 
-        console.log("Lobby created:", lobbyData);
-      });
+            const allLobbies = await prisma.examLobby.findMany({
+              include: {
+                instructor: true,
+                _count: { select: { LobbyUser: true } },
+              },
+            });
+            io.emit("lobby-updated", allLobbies);
+
+            // ✅ Send acknowledgment to the creating client
+            if (callback) callback({ success: true, lobby: lobbyData });
+          } catch (err: any) {
+            console.error(err);
+            if (callback) callback({ success: false, message: err.message });
+          }
+        }
+      );
 
       // 📌 Teacher starts quiz
       socket.on("start-quiz", async ({ lobbyId }) => {
@@ -95,48 +113,57 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         io.emit("quiz-ended", { lobbyId });
       });
 
-socket.on("join-lobby", async ({ lobbyId, userId, username }) => {
-  try {
-    const lobby = await prisma.examLobby.findUnique({ where: { id: lobbyId } });
-    if (!lobby) {
-      socket.emit("join-error", { message: "Mission does not exist." });
-      return;
-    }
+      socket.on("join-lobby", async ({ lobbyId, userId, username }) => {
+        try {
+          const lobby = await prisma.examLobby.findUnique({
+            where: { id: lobbyId },
+          });
+          if (!lobby) {
+            socket.emit("join-error", { message: "Mission does not exist." });
+            return;
+          }
 
-    if (lobby.status !== "WAITING") {
-      socket.emit("join-error", { message: "Mission already started or finished." });
-      return;
-    }
+          if (lobby.status !== "WAITING") {
+            socket.emit("join-error", {
+              message: "Mission already started or finished.",
+            });
+            return;
+          }
 
-    const existing = await prisma.lobbyUser.findFirst({ where: { lobbyId, userId } });
-    if (!existing) {
-      await prisma.lobbyUser.create({
-        data: { lobbyId, userId },
+          const existing = await prisma.lobbyUser.findFirst({
+            where: { lobbyId, userId },
+          });
+          if (!existing) {
+            await prisma.lobbyUser.create({
+              data: { lobbyId, userId },
+            });
+          }
+
+          socket.join(lobbyId); // join the socket room
+
+          // ✅ Notify the joining client
+          io.to(socket.id).emit("join-success", {
+            lobbyId,
+            lobbyName: lobby.name,
+            lobby: lobby,
+          });
+
+          // ✅ Notify other clients in the lobby
+          socket.to(lobbyId).emit("student-joined", { userId, username });
+
+          // ✅ Update all clients with new lobby counts
+          const allLobbies = await prisma.examLobby.findMany({
+            include: {
+              instructor: true,
+              _count: { select: { LobbyUser: true } },
+            },
+          });
+          io.emit("lobby-updated", allLobbies);
+        } catch (err: any) {
+          console.error("Join error:", err);
+          socket.emit("join-error", { message: "Failed to join the mission." });
+        }
       });
-    }
-
-    socket.join(lobbyId); // join the socket room
-
-    // ✅ Notify the joining client
-    io.to(socket.id).emit("join-success", { lobbyId, lobbyName: lobby.name });
-
-    // ✅ Notify other clients in the lobby
-    socket.to(lobbyId).emit("student-joined", { userId, username });
-
-    // ✅ Update all clients with new lobby counts
-    const allLobbies = await prisma.examLobby.findMany({
-      include: {
-        instructor: true,
-        _count: { select: { LobbyUser: true } },
-      },
-    });
-    io.emit("lobby-updated", allLobbies);
-  } catch (err: any) {
-    console.error("Join error:", err);
-    socket.emit("join-error", { message: "Failed to join the mission." });
-  }
-});
-
 
       // 📩 handle chat message
       socket.on(
