@@ -18,7 +18,7 @@ const buttonQuizVariants = cva(
         softDarkPrimary:
           "bg-blue-900/40 hover:bg-blue-800/60 text-blue-200 border border-blue-500/40 py-3 flex-1",
         secondary:
-          "bg-white text-gray-900 hover:bg-gray-100 px-6 py-4 w-full justify-center",
+          "bg-white text-gray-900 hover:bg-gray-100 px-6 py-4 justify-center",
         start:
           "bg-green-100 text-green-700 border border-green-300 py-3 flex-1 shadow-inner hover:bg-green-200",
         completed:

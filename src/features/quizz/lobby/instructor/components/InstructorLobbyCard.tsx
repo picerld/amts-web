@@ -13,6 +13,7 @@ import {
 import { LobbyData } from "@/types/lobby";
 import { ButtonQuiz } from "@/features/quizz/components/ui/button-quiz";
 import { QuizConfirmDialog } from "@/features/quizz/components/container/QuizConfirmDialog";
+import { useRouter } from "next/navigation";
 
 export const cardVariants = {
   hidden: { opacity: 0, y: 40 },
@@ -43,6 +44,8 @@ export default function InstructorLobbyCard({
   deleteLobby,
   cardVariants,
 }: InstructorLobbyCardProps) {
+  const router = useRouter();
+
   return (
     <motion.div
       key={lobby.id}
@@ -163,24 +166,33 @@ export default function InstructorLobbyCard({
         )}
 
         {lobby.status === "FINISHED" && (
-          <>
-            <ButtonQuiz variant={"start"} disabled>
-              <CheckCircle className="w-5 h-5" /> Completed
+          <div className="flex flex-col gap-3 w-full">
+            <ButtonQuiz
+              onClick={() => router.push(`/lobby/instructor/${lobby.id}`)}
+              variant={"softPrimary"}
+              className="w-full"
+            >
+              <Target className="w-5 h-5" /> See Result
             </ButtonQuiz>
+            <div className="grid grid-cols-2 gap-3">
+              <ButtonQuiz variant={"start"} disabled>
+                <CheckCircle className="w-5 h-5" /> Completed
+              </ButtonQuiz>
 
-            <QuizConfirmDialog
-              trigger={
-                <ButtonQuiz variant={"abort"}>
-                  <Shield className="w-5 h-5" /> Delete
-                </ButtonQuiz>
-              }
-              title="Confirm Delete"
-              description="Are you sure you want to delete this lobby?"
-              confirmText="Yes, Delete!"
-              cancelText="No, Cancel!"
-              onConfirm={() => deleteLobby(lobby.id)}
-            />
-          </>
+              <QuizConfirmDialog
+                trigger={
+                  <ButtonQuiz variant={"abort"}>
+                    <Shield className="w-5 h-5" /> Delete
+                  </ButtonQuiz>
+                }
+                title="Confirm Delete"
+                description="Are you sure you want to delete this lobby?"
+                confirmText="Yes, Delete!"
+                cancelText="No, Cancel!"
+                onConfirm={() => deleteLobby(lobby.id)}
+              />
+            </div>
+          </div>
         )}
       </div>
     </motion.div>

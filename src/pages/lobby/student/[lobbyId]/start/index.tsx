@@ -28,7 +28,7 @@ type QuizData = {
 export default function StudentQuizStart() {
   const router = useRouter();
   const { lobbyId } = router.query;
-  
+
   const [currentQuiz, setCurrentQuiz] = useState<QuizData | null>(null);
   const [lobby, setLobby] = useState<LobbyData | null>(null);
   const [notification, setNotification] = useState<string>("");
@@ -36,12 +36,17 @@ export default function StudentQuizStart() {
   const [socket, setSocket] = useState<any | null>(null);
   const [userId, setUserId] = useState<string>("");
 
-  const countdown = useCountdown(currentQuiz?.duration ?? 0);
+  const { formattedTime, timeLeft, isExpired } = useCountdown(
+    lobby?.duration || 0,
+    lobby?.startTime?.toString() || undefined,
+    lobby?.status === "ONGOING"
+  );
 
   useEffect(() => {
     if (!router.isReady || !lobbyId) return;
 
-    const id = Cookies.get("user.id") ?? "student-" + Math.floor(Math.random() * 1000);
+    const id =
+      Cookies.get("user.id") ?? "student-" + Math.floor(Math.random() * 1000);
     setUserId(id);
     const username = Cookies.get("user.username") || "Anonymous";
 
@@ -61,10 +66,10 @@ export default function StudentQuizStart() {
 
     // ===== Handlers =====
     const lobbyUpdatedHandler = (updatedLobbies: LobbyData[]) => {
-      const currentLobby = updatedLobbies.find(l => l.id === lobbyId);
+      const currentLobby = updatedLobbies.find((l) => l.id === lobbyId);
       if (currentLobby) {
         setLobby(currentLobby);
-        
+
         // If quiz is ongoing, set quiz data
         if (currentLobby.status === "ONGOING") {
           setCurrentQuiz({
@@ -183,7 +188,7 @@ export default function StudentQuizStart() {
   }
 
   // Quiz completion UI
-  if (currentQuiz && countdown === "00:00") {
+  if (currentQuiz && formattedTime == "00:00:00") {
     return (
       <motion.div
         className="min-h-screen bg-gradient-to-br from-green-50 via-green-100 to-green-200"
@@ -334,7 +339,9 @@ export default function StudentQuizStart() {
                       >
                         <Target className="w-4 h-4 text-white" />
                       </motion.div>
-                      <p className="text-gray-800 font-medium">{notification}</p>
+                      <p className="text-gray-800 font-medium">
+                        {notification}
+                      </p>
                     </div>
                     <motion.button
                       onClick={dismissNotification}
@@ -378,7 +385,9 @@ export default function StudentQuizStart() {
                   </h2>
                   <div className="flex items-center justify-center gap-2 text-blue-600 mb-6">
                     <Target className="w-5 h-5" />
-                    <span className="text-xl font-semibold">Mission Active</span>
+                    <span className="text-xl font-semibold">
+                      Mission Active
+                    </span>
                   </div>
                 </motion.div>
 
@@ -399,7 +408,9 @@ export default function StudentQuizStart() {
                         Time Remaining
                       </span>
                     </div>
-                    <div className="text-3xl font-bold text-gray-800">{countdown}</div>
+                    <div className="text-3xl font-bold text-gray-800">
+                      {formattedTime}
+                    </div>
                   </motion.div>
 
                   <motion.div
@@ -412,7 +423,9 @@ export default function StudentQuizStart() {
                         Status
                       </span>
                     </div>
-                    <div className="text-lg font-bold text-gray-800">Operational</div>
+                    <div className="text-lg font-bold text-gray-800">
+                      Operational
+                    </div>
                   </motion.div>
                 </motion.div>
 
@@ -431,9 +444,9 @@ export default function StudentQuizStart() {
                   </div>
                   <p className="text-gray-700 text-sm leading-relaxed">
                     Your training exercise is now active. Follow all safety
-                    protocols and complete assigned objectives within the specified
-                    timeframe. Maintain communication discipline and await further
-                    instructions from your commanding officer.
+                    protocols and complete assigned objectives within the
+                    specified timeframe. Maintain communication discipline and
+                    await further instructions from your commanding officer.
                   </p>
                 </motion.div>
 
@@ -449,7 +462,9 @@ export default function StudentQuizStart() {
                     animate={{ scale: [1, 1.2, 1] }}
                     transition={{ repeat: Infinity, duration: 1.5 }}
                   />
-                  <span className="font-medium">Training exercise in progress...</span>
+                  <span className="font-medium">
+                    Training exercise in progress...
+                  </span>
                 </motion.div>
 
                 {/* Navigation Buttons */}

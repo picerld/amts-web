@@ -64,6 +64,7 @@ export default function LobbyPage() {
               <Link href={`/lobby/${role}`} className="w-full">
                 <ButtonQuiz
                   variant="secondary"
+                  className="w-full"
                   icon={role === "instructor" ? Shield : GraduationCap}
                 >
                   {role === "instructor"

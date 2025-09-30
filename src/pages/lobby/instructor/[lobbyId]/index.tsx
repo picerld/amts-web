@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import Cookies from "js-cookie";
@@ -8,29 +8,29 @@ import { getSocket } from "@/utils/socket";
 import { LobbyData } from "@/types/lobby";
 import LobbyHeader from "@/features/quizz/components/container/LobbyHeader";
 import { useNotification } from "@/features/quizz/context/NotificationContext";
-import { containerVariants } from "@/features/quizz/lobby/instructor/components/InstructorLobbyList";
+import { InstructorLobbyContainer } from "@/features/quizz/lobby/instructor/pages/InstructorLobbyContainer";
+import { ChatMessage } from "@/features/quizz/types/chat-message";
+import { trpc } from "@/utils/trpc";
 import {
-  BookmarkCheck,
-  CheckCircle,
-  Clock,
-  LogOut,
-  MessageSquare,
-  Shield,
+  BarChart3,
+  Plane,
+  Radar,
+  Star,
   Target,
-  User,
+  Trophy,
   Users,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ButtonQuiz } from "@/features/quizz/components/ui/button-quiz";
-import { QuizConfirmDialog } from "@/features/quizz/components/container/QuizConfirmDialog";
-
-type ChatMessage = {
-  userId: string;
-  username: string;
-  message: string;
-  timestamp: string;
-  type?: "chat" | "system";
-  color?: "red" | "green";
-};
 
 export default function InstructorLobbyRoom() {
   const router = useRouter();
@@ -41,11 +41,18 @@ export default function InstructorLobbyRoom() {
   const [socket, setSocket] = useState<any>(null);
   const [lobby, setLobby] = useState<LobbyData | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [chatInput, setChatInput] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
-  const [loadingError, setLoadingError] = useState(false);
+
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadingError, setLoadingError] = useState<boolean>(false);
+
+  const [showResultDialog, setShowResultDialog] = useState<boolean>(false);
 
   const lobbyIdStr = Array.isArray(lobbyId) ? lobbyId[0] : lobbyId;
+
+  const { data: subjects, isLoading: isLoadingSubject } =
+    trpc.bank.getAll.useQuery();
 
   useEffect(() => {
     if (!router.isReady || !lobbyIdStr) return;
@@ -66,10 +73,11 @@ export default function InstructorLobbyRoom() {
     });
 
     s.on("quiz-started", (startedLobby: LobbyData) => {
-      console.log("Quiz started event received for", startedLobby.id);
       if (startedLobby.instructorId === id) {
         setLobby((prev) =>
-          prev?.id === startedLobby.id ? { ...prev, status: "ONGOING" } : prev
+          prev?.id === startedLobby.id
+            ? { ...prev, status: "ONGOING", startTime: startedLobby.startTime }
+            : prev
         );
       }
     });
@@ -78,11 +86,26 @@ export default function InstructorLobbyRoom() {
       setLobby((prev) =>
         prev?.id === lobbyId ? { ...prev, status: "FINISHED" } : prev
       );
+
+      if (lobbyId === lobbyIdStr) {
+        setShowResultDialog(true);
+      }
     });
 
     s.on("lobby-deleted", ({ lobbyId }) => {
       if (lobbyId === lobbyIdStr) {
         router.push("/lobby/instructor");
+      }
+    });
+
+    s.on("bank-updated", ({ lobbyId: updatedLobbyId, bankId }) => {
+      console.log("Bank updated event received:", updatedLobbyId, bankId);
+      if (updatedLobbyId === lobbyIdStr) {
+        setLobby((prev) => {
+          if (!prev) return prev;
+          console.log("Updating lobby bankId from", prev.bankId, "to", bankId);
+          return { ...prev, bankId };
+        });
       }
     });
 
@@ -153,8 +176,7 @@ export default function InstructorLobbyRoom() {
       userId: joinedId,
       username: joinedUsername,
     }: any) => {
-      if (joinedId === userId) return; // ignore your own join
-      // Only add message if it doesn't already exist
+      if (joinedId === userId) return;
       setMessages((prev) => {
         const exists = prev.some(
           (m) =>
@@ -217,17 +239,40 @@ export default function InstructorLobbyRoom() {
       s.off("chat-history", chatHistoryHandler);
       s.off("chat-message", chatMessageHandler);
       s.off("leave-success", leaveSuccessHandler);
-      s.on("student-joined", studentJoinedHandler);
+      s.off("student-joined", studentJoinedHandler);
       s.off("student-left");
       s.off("quiz-started");
       s.off("quiz-ended");
       s.off("lobby-deleted");
+      s.off("bank-updated");
     };
   }, [router.isReady, lobbyIdStr]);
+
+  useEffect(() => {
+    if (lobby?.status == "FINISHED") {
+      setShowResultDialog(true);
+    }
+  }, [lobby?.status]);
+
+  const sendMessage = () => {
+    if (!chatInput.trim() || !lobbyId || !socket) return;
+    socket.emit("chat-message", {
+      lobbyId,
+      userId,
+      username: Cookies.get("user.username") || "Anonymous",
+      message: chatInput,
+    });
+    setChatInput("");
+  };
 
   const startQuiz = (lobbyId: string) => {
     const s = getSocket();
     if (s) s.emit("start-quiz", { lobbyId });
+
+    showNotif({
+      title: "Started!",
+      description: "Quiz started successfully!",
+    });
   };
 
   const endQuiz = (lobbyId: string) => {
@@ -249,320 +294,183 @@ export default function InstructorLobbyRoom() {
 
   const leaveLobby = () => {
     if (!socket || !lobbyId) return;
-    if (window.confirm("Are you sure you want to abort this mission?")) {
-      socket.emit("leave-lobby", {
-        lobbyId,
-        userId,
-        username: Cookies.get("user.username") || "Anonymous",
-      });
+    socket.emit("leave-lobby", {
+      lobbyId,
+      userId,
+      username: Cookies.get("user.username") || "Anonymous",
+    });
+
+    showNotif({
+      title: "Left!",
+      description: "Left the lobby successfully!",
+    });
+  };
+
+  const updateLobbyBank = (lobbyId: string, bankId: number) => {
+    const s = getSocket();
+    if (s) {
+      s.emit("update-lobby-bank", { lobbyId, bankId });
     }
   };
 
-  if (isLoading) return <div className="p-6">Loading lobby...</div>;
-  if (loadingError || !lobby)
+  if (isLoading)
     return (
-      <div className="p-6">
-        <p className="text-red-500 mb-4">
-          {loadingError
-            ? "Failed to load lobby. Connection issue or lobby does not exist."
-            : "Lobby not found."}
-        </p>
-        <button
-          onClick={() => router.push("/instructor")}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Back
-        </button>
-      </div>
+      <motion.div
+        className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 flex items-center justify-center"
+        transition={{ duration: 0.4 }}
+      >
+        <div className="text-center">
+          <motion.div
+            className="relative mb-8"
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+          >
+            <Radar className="w-24 h-24 text-blue-400 mx-auto opacity-60" />
+            <motion.div
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+            >
+              <Plane className="w-12 h-12 text-blue-600" />
+            </motion.div>
+          </motion.div>
+          <motion.h3
+            className="text-2xl font-bold text-gray-800 mb-2"
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            Loading Mission Status...
+          </motion.h3>
+          <motion.p
+            className="text-blue-600"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+          >
+            Verifying mission parameters
+          </motion.p>
+        </div>
+      </motion.div>
     );
 
   return (
-    <LobbyHeader backHref="/lobby/instructor" withBack>
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="flex flex-col gap-5">
+    <LobbyHeader padded={false} backHref="/lobby/instructor" withBack>
+      <InstructorLobbyContainer
+        subjects={subjects || []}
+        lobby={lobby as LobbyData}
+        messages={messages}
+        userId={userId}
+        chatInput={chatInput}
+        setChatInput={setChatInput}
+        sendMessage={sendMessage}
+        startQuiz={startQuiz}
+        endQuiz={endQuiz}
+        deleteLobby={deleteLobby}
+        leaveLobby={leaveLobby}
+        isSubjectLoading={isLoadingSubject}
+        updateLobbyBank={updateLobbyBank}
+      />
+
+      {/* TODO: refactor this */}
+      <AlertDialog open={showResultDialog} onOpenChange={setShowResultDialog}>
+        <AlertDialogContent asChild>
           <motion.div
-            className="lg:col-span-1"
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
+            className="bg-white shadow-2xl border border-gray-200 rounded-3xl p-8 text-gray-900 lg:max-w-6xl overflow-y-auto"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            <motion.div className="bg-white border-2 border-blue-100 rounded-2xl p-6 shadow-xl">
-              <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <BookmarkCheck className="w-5 h-5 text-blue-600" />
-                Pick Your Subject!
-              </h3>
-            </motion.div>
-          </motion.div>
+            {/* Header */}
+            <AlertDialogHeader className="flex flex-col justify-center items-center">
+              <motion.div
+                className="p-6 bg-blue-600 rounded-full mb-4 shadow-md"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.1, duration: 0.4 }}
+              >
+                <Trophy className="w-12 h-12 text-white" />
+              </motion.div>
+              <AlertDialogTitle className="text-4xl font-bold text-gray-800 text-center">
+                Quiz Completed!
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-gray-600 text-lg text-center mt-2">
+                Quiz has ended. Here are the results:
+              </AlertDialogDescription>
+            </AlertDialogHeader>
 
-          <motion.div
-            className="lg:col-span-1"
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-          >
-            <motion.div className="bg-white border-2 border-blue-100 rounded-2xl p-6 shadow-xl">
-              <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <Target className="w-5 h-5 text-blue-600" />
-                Mission Details
-              </h3>
-
-              <div className="space-y-4">
-                <motion.div
-                  className="bg-blue-50 border border-blue-100 rounded-xl p-4"
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <div className="flex items-center gap-2 text-blue-600 mb-2">
-                    <Users className="w-4 h-4" />
-                    <span className="text-sm font-medium">Active</span>
-                  </div>
-                  <span className="text-2xl font-bold text-gray-800">
-                    {lobby._count?.LobbyUser || 0}
-                  </span>
-                </motion.div>
-
-                <motion.div
-                  className="bg-blue-50 border border-blue-100 rounded-xl p-4"
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <div className="flex items-center gap-2 text-blue-600 mb-2">
-                    <Clock className="w-4 h-4" />
-                    <span className="text-sm font-medium">Duration</span>
-                  </div>
-                  <span className="text-2xl font-bold text-gray-800">
-                    {lobby.duration}m
-                  </span>
-                </motion.div>
-
-                <motion.div
-                  className="bg-gray-50 border border-gray-200 rounded-xl p-4"
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <h4 className="text-gray-800 font-semibold mb-2">
-                    Mission ID
-                  </h4>
-                  <p className="text-gray-600 text-sm font-mono">
-                    {lobby.id.slice(-12).toUpperCase()}
-                  </p>
-                </motion.div>
-              </div>
-
-              {lobby.status == "WAITING" && (
-                <>
-                  <ButtonQuiz
-                    variant={"start"}
-                    onClick={() => startQuiz(lobby.id)}
-                    className="w-full mt-5"
-                  >
-                    <Target className="w-5 h-5" /> Start Mission
-                  </ButtonQuiz>
-
-                  <ButtonQuiz
-                    variant={"abort"}
-                    onClick={leaveLobby}
-                    className="w-full mt-5"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Leave Lobby
-                  </ButtonQuiz>
-                </>
-              )}
-
-              {lobby.status == "ONGOING" && (
-                <ButtonQuiz
-                  variant={"softPrimary"}
-                  onClick={() => endQuiz(lobby.id)}
-                  className="w-full mt-5"
-                >
-                  <Target className="w-5 h-5" /> End Mission
-                </ButtonQuiz>
-              )}
-
-              {lobby.status === "FINISHED" && (
-                <div className="flex flex-col gap-5 mt-5">
-                  <ButtonQuiz variant={"start"} disabled>
-                    <CheckCircle className="w-5 h-5" /> Completed
-                  </ButtonQuiz>
-
-                  <QuizConfirmDialog
-                    trigger={
-                      <ButtonQuiz variant={"abort"}>
-                        <Shield className="w-5 h-5" /> Delete
-                      </ButtonQuiz>
-                    }
-                    title="Confirm Delete"
-                    description="Are you sure you want to delete this lobby?"
-                    confirmText="Yes, Delete!"
-                    cancelText="No, Cancel!"
-                    onConfirm={() => deleteLobby(lobby.id)}
-                  />
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        </div>
-
-        <motion.div
-          className="lg:col-span-2"
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-        >
-          <motion.div className="bg-white border-2 border-blue-100 rounded-2xl shadow-xl overflow-hidden h-[600px] flex flex-col">
-            {/* Chat Header */}
+            {/* Body */}
             <motion.div
-              className="bg-gradient-to-r from-blue-600 to-blue-700 border-b border-blue-200 p-6"
+              className="py-6 space-y-6 grid grid-cols-2 gap-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
             >
-              <div className="flex items-center justify-between gap-3">
-                <motion.div className="flex items-center gap-3">
-                  <motion.div
-                    className="p-2 bg-white/20 rounded-lg"
-                    whileHover={{ scale: 1.1 }}
-                  >
-                    <MessageSquare className="w-5 h-5 text-white" />
-                  </motion.div>
+              {/* Overview */}
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 shadow-sm">
+                <h3 className="font-semibold text-xl mb-4 text-blue-700 flex items-center gap-2">
+                  <BarChart3 className="w-6 h-6" />
+                  Overview
+                </h3>
+                <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <h3 className="text-lg font-bold text-white">
-                      Lobby Chats!
-                    </h3>
-                    <p className="text-blue-100 text-sm">
-                      Secure Channel - End-to-End Encrypted
-                    </p>
+                    <p className="text-sm text-gray-600">Total Participants</p>
+                    <p className="text-3xl font-bold text-blue-600">100</p>
                   </div>
-                </motion.div>
+                </div>
+              </div>
 
-                <motion.div
-                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    lobby.status === "ONGOING"
-                      ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
-                      : "bg-green-100 text-green-700 border border-green-300"
-                  }`}
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ repeat: Infinity, duration: 2 }}
-                >
-                  {lobby.status}
-                </motion.div>
+              {/* Top Performers */}
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-6 shadow-sm">
+                <h3 className="font-semibold text-xl mb-4 text-green-700 flex items-center gap-2">
+                  <Star className="w-6 h-6" />
+                  Top Performers
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center bg-white border border-gray-200 p-3 rounded-xl shadow-sm">
+                    <span className="font-medium text-gray-800 flex items-center gap-2">
+                      <Users className="w-5 h-5 text-green-600" />
+                      Student
+                    </span>
+                    <span className="font-bold text-green-600">100 pts</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Statistics */}
+              <div className="bg-purple-50 border border-purple-200 rounded-2xl p-6 shadow-sm col-span-2">
+                <h3 className="font-semibold text-xl mb-4 text-purple-700 flex items-center gap-2">
+                  <Target className="w-6 h-6" />
+                  Statistics
+                </h3>
+                <div>
+                  <p className="text-gray-600 text-sm">Quiz Duration</p>
+                  <p className="text-3xl font-bold text-purple-600">
+                    {lobby?.duration ? `${lobby.duration} min` : "N/A"}
+                  </p>
+                </div>
               </div>
             </motion.div>
 
-            {/* Messages */}
-            <motion.div
-              className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              {messages.length === 0 ? (
-                <motion.div
-                  className="text-center py-12"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h4 className="text-gray-600 font-semibold mb-2">
-                    Communication Channel Open
-                  </h4>
-                  <p className="text-gray-500 text-sm">
-                    Waiting for mission communications...
-                  </p>
-                </motion.div>
-              ) : (
-                <AnimatePresence>
-                  {messages.map((msg, idx) => (
-                    <motion.div
-                      key={idx}
-                      className={`${
-                        msg.type === "system"
-                          ? "text-center"
-                          : msg.userId === userId
-                          ? "ml-4"
-                          : "mr-4"
-                      }`}
-                      exit="hidden"
-                      layout
-                    >
-                      {msg.type === "system" ? (
-                        <motion.div
-                          className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-center shadow-sm"
-                          whileHover={{ scale: 1.02 }}
-                        >
-                          <span
-                            className={`text-sm font-medium ${
-                              msg.color === "red"
-                                ? "text-red-600"
-                                : "text-green-600"
-                            }`}
-                          >
-                            {msg.message}
-                          </span>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {new Date(msg.timestamp).toLocaleTimeString()}
-                          </div>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          className={`max-w-sm ${
-                            msg.userId === userId
-                              ? "ml-auto bg-main text-white border border-blue-600"
-                              : "bg-white border border-gray-200 text-gray-800"
-                          } rounded-xl p-4 shadow-md`}
-                          whileHover={{ scale: 1.01 }}
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <User className="w-4 h-4" />
-                            <span className="text-sm font-semibold opacity-80">
-                              {msg.username}
-                            </span>
-                          </div>
-                          <p className="text-sm leading-relaxed">
-                            {msg.message}
-                          </p>
-                          <div className="text-xs opacity-60 mt-2">
-                            {new Date(msg.timestamp).toLocaleTimeString()}
-                          </div>
-                        </motion.div>
-                      )}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              )}
-            </motion.div>
+            {/* Footer */}
+            <AlertDialogFooter className="flex justify-end gap-4 mt-6">
+              <ButtonQuiz
+                onClick={() => setShowResultDialog(false)}
+                variant="abort"
+              >
+                Close
+              </ButtonQuiz>
 
-            {/* Message Input */}
-            <motion.div
-              className="border-t border-gray-200 p-6 bg-white"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              {/* <div className="flex gap-3">
-                <motion.input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                  placeholder="Send encrypted message to team..."
-                  className="flex-1 bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  whileFocus={{ scale: 1.01 }}
-                  transition={{ duration: 0.2 }}
-                />
-                <motion.button
-                  onClick={sendMessage}
-                  className="bg-main hover:bg-blue-700 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 font-semibold"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Send className="w-4 h-4" />
-                  Send
-                </motion.button>
-              </div> */}
-            </motion.div>
+              <ButtonQuiz
+                onClick={() => {
+                  setShowResultDialog(false);
+                }}
+                variant="softPrimary"
+              >
+                Return to Lobby
+              </ButtonQuiz>
+            </AlertDialogFooter>
           </motion.div>
-        </motion.div>
-      </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </LobbyHeader>
   );
 }

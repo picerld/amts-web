@@ -1,31 +1,43 @@
 import { useState, useEffect } from "react";
 
-export function useCountdown(initialMinutes: number) {
-  const [timeLeft, setTimeLeft] = useState(initialMinutes * 60); // Convert minutes to seconds
+export function useCountdown(
+  durationMinutes: number, 
+  startedAt?: string | Date, 
+  isStarted: boolean = true
+) {
+  const [timeLeft, setTimeLeft] = useState<number>(0);
 
   useEffect(() => {
-    if (initialMinutes <= 0) return;
-    
-    setTimeLeft(initialMinutes * 60);
-  }, [initialMinutes]);
+    if (!isStarted) {
+      return;
+    }
 
-  useEffect(() => {
-    if (timeLeft <= 0) return;
+    const calculateTimeLeft = () => {
+      if (!startedAt) {
+        return durationMinutes * 60;
+      }
+      
+      const now = Date.now();
+      const startTime = new Date(startedAt).getTime();
+      const elapsedSeconds = Math.floor((now - startTime) / 1000);
+      const totalSeconds = durationMinutes * 60;
+      const remaining = totalSeconds - elapsedSeconds;
+      
+      return Math.max(0, remaining);
+    };
 
-    const intervalId = setInterval(() => {
-      setTimeLeft((prevTime) => {
-        if (prevTime <= 1) {
-          clearInterval(intervalId);
-          return 0;
-        }
-        return prevTime - 1;
-      });
-    }, 1000);
+    const updateTimer = () => {
+      const remaining = calculateTimeLeft();
+      setTimeLeft(remaining);
+    };
+
+    updateTimer();
+
+    const intervalId = setInterval(updateTimer, 1000);
 
     return () => clearInterval(intervalId);
-  }, [timeLeft]);
+  }, [durationMinutes, startedAt, isStarted]);
 
-  // Format time as MM:SS
   const formatTime = (seconds: number): string => {
     if (seconds <= 0) return "00:00";
     
@@ -34,5 +46,9 @@ export function useCountdown(initialMinutes: number) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  return formatTime(timeLeft);
+  return { 
+    formattedTime: formatTime(timeLeft), 
+    timeLeft,
+    isExpired: timeLeft <= 0 
+  };
 }

@@ -86,6 +86,35 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         }
       );
 
+      // 📌 Update lobby bank/subject
+      socket.on("update-lobby-bank", async ({ lobbyId, bankId }) => {
+        try {
+          const updatedLobby = await prisma.examLobby.update({
+            where: { id: lobbyId },
+            data: { bankId },
+            include: {
+              instructor: true,
+              _count: { select: { LobbyUser: true } },
+            },
+          });
+
+          io.emit("bank-updated", { lobbyId, bankId });
+
+          const allLobbies = await prisma.examLobby.findMany({
+            include: {
+              instructor: true,
+              _count: { select: { LobbyUser: true } },
+            },
+          });
+          io.emit("lobby-updated", allLobbies);
+
+          console.log("Bank updated for lobby:", lobbyId, "to bank:", bankId);
+        } catch (err: any) {
+          console.error("Error updating bank:", err);
+          socket.emit("update-error", { message: "Failed to update subject" });
+        }
+      });
+
       // 📌 Teacher starts quiz
       socket.on("start-quiz", async ({ lobbyId }) => {
         const updatedLobby = await prisma.examLobby.update({

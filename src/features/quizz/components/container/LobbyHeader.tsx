@@ -13,6 +13,7 @@ interface LobbyHeaderProps {
   };
   withBack?: boolean;
   backHref?: string;
+  padded?: boolean;
 }
 
 export default function LobbyHeader({
@@ -20,6 +21,7 @@ export default function LobbyHeader({
   lobby,
   withBack = false,
   backHref = "/lobby",
+  padded = true,
 }: LobbyHeaderProps) {
   const router = useRouter();
 
@@ -42,9 +44,9 @@ export default function LobbyHeader({
     >
       <motion.div
         className="relative overflow-hidden bg-white shadow-lg"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent"></div>
         <div className="relative px-6 py-6">
@@ -99,7 +101,9 @@ export default function LobbyHeader({
       </motion.div>
 
       <div className="px-6 py-8">
-        <div className="max-w-7xl mx-auto">{children}</div>
+        <div className={`mx-auto ${padded ? "max-w-7xl" : "w-full px-10"}`}>
+          {children}
+        </div>
       </div>
     </motion.div>
   );
