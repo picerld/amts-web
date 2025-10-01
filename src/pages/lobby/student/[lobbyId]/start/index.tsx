@@ -17,7 +17,7 @@ import {
   Radar,
   Plane,
 } from "lucide-react";
-import { useCountdown } from "../../hooks/useCountdown";
+import { useCountdown } from "@/features/quiz/hooks/useCountdown";
 
 type QuizData = {
   id: string;

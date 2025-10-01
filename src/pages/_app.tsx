@@ -10,7 +10,7 @@ import { Poppins } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SidebarProvider } from "@/components/container/SidebarContext";
 import { getSocket } from "@/utils/socket";
-import { NotificationProvider } from "@/features/quizz/context/NotificationContext";
+import { NotificationProvider } from "@/features/quiz/context/NotificationContext";
 
 const poppins = Poppins({
   subsets: ["latin"],

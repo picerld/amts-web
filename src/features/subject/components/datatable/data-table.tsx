@@ -24,6 +24,10 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { DataTableViewOptions } from "@/components/datatable/data-table-view-option";
 import { Loader } from "lucide-react";
+import ImportSubjectDialog from "../ImportSubjectDialog";
+import { trpc } from "@/utils/trpc";
+import Cookies from "js-cookie";
+import { toast } from "sonner";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -65,16 +69,46 @@ export function DataTable<TData, TValue>({
     },
   });
 
+  const importMutation = trpc.bank.import.useMutation();
+
+  const handleImport = async (
+    file: File,
+    type: "PG" | "EX",
+    category: "NORMAL" | "EMERGENCY"
+  ) => {
+    const buffer = await file.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+
+    const response = await importMutation.mutateAsync({
+      filename: file.name,
+      fileBase64: base64,
+      type,
+      category,
+      userId: Cookies.get("user.id") ?? "",
+    });
+
+    toast.success("Success!!", {
+      description: `${response.createdCount} rows imported successfully!`,
+    });
+
+    table.reset();
+
+    setTimeout(() => window.location.reload(), 1000);
+  };
+
   return (
     <>
-      <div className="flex items-center pb-5">
+      <div className="flex items-center justify-between pb-5">
         <Input
           placeholder="Search your subject..."
           value={search}
           onChange={handleSearch}
           className="max-w-xs"
         />
-        <DataTableViewOptions table={table} />
+        <div className="flex gap-2">
+          <ImportSubjectDialog onImport={handleImport} />
+          <DataTableViewOptions table={table} />
+        </div>
       </div>
       <div className="rounded-md border-2">
         <Table>

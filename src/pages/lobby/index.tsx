@@ -1,1 +1,1 @@
-export { default } from "@/features/quizz/lobby/pages/LobbyPage";
+export { default } from "@/features/quiz/lobby/pages/LobbyPage";

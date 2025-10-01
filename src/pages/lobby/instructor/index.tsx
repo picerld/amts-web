@@ -1,1 +1,1 @@
-export { default } from "@/features/quizz/lobby/instructor/pages/InstructorPage";
+export { default } from "@/features/quiz/lobby/instructor/pages/InstructorPage";
