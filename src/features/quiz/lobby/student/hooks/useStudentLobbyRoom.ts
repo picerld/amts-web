@@ -31,9 +31,10 @@ export const useStudentLobbyRoom = ({
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadingError, setLoadingError] = useState<boolean>(false);
-  const [showResultDialog, setShowResultDialog] = useState<boolean>(false); // optional
+  const [showResultDialog, setShowResultDialog] = useState<boolean>(false);
 
   const onNotificationRef = useRef(onNotification);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     onNotificationRef.current = onNotification;
@@ -43,26 +44,36 @@ export const useStudentLobbyRoom = ({
     if (!lobbyId) return;
 
     const id = Cookies.get("user.id") ?? generateUserId();
-    const username = Cookies.get("user.username") || "Instructor";
+    const username = Cookies.get("user.username") || "Student";
     setUserId(id);
 
     const s = getSocket();
 
+    // Check saved lobby first
     const savedLobby = localStorage.getItem(STORAGE_KEYS.JOINED_LOBBY);
-
-    if (savedLobby) {
+    if (savedLobby && savedLobby !== lobbyId) {
       router.push(`/lobby/student/${savedLobby}`);
       return;
     }
 
-    s.emit(SOCKET_EVENTS.GET_LOBBIES);
-    s.emit(SOCKET_EVENTS.GET_CHATS, lobbyId);
-    s.emit(SOCKET_EVENTS.JOIN_LOBBY, { lobbyId, userId: id, username });
+    // Store current lobby
+    localStorage.setItem(STORAGE_KEYS.JOINED_LOBBY, lobbyId);
+
+    const clearLoadingTimeout = () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
 
     const lobbyUpdatedHandler = (updatedLobbies: LobbyData[]) => {
       const currentLobby = updatedLobbies.find((l) => l.id === lobbyId);
-      if (currentLobby) setLobby(currentLobby);
-      setIsLoading(false);
+      if (currentLobby) {
+        setLobby(currentLobby);
+        setIsLoading(false);
+        setLoadingError(false);
+        clearLoadingTimeout();
+      }
     };
 
     const joinSuccessHandler = ({
@@ -87,7 +98,7 @@ export const useStudentLobbyRoom = ({
 
         setIsLoading(false);
         setLoadingError(false);
-        clearTimeout(timeout);
+        clearLoadingTimeout();
       }
     };
 
@@ -95,6 +106,7 @@ export const useStudentLobbyRoom = ({
       console.error("Join error:", message);
       setIsLoading(false);
       setLoadingError(true);
+      clearLoadingTimeout();
     };
 
     const leaveSuccessHandler = ({
@@ -106,7 +118,7 @@ export const useStudentLobbyRoom = ({
         localStorage.removeItem(STORAGE_KEYS.JOINED_LOBBY);
         setIsLeaving(false);
         onNotificationRef.current("Left", `Left "${lobby?.name}"`);
-        router.push("/lobby/instructor");
+        router.push("/lobby/student");
       }
     };
 
@@ -159,7 +171,7 @@ export const useStudentLobbyRoom = ({
       userId: string;
       username: string;
     }) => {
-      if (leavingUserId === userId) return;
+      if (leavingUserId === id) return;
       const sysMsg: ChatMessage = {
         userId: "system",
         username: "Command",
@@ -172,7 +184,8 @@ export const useStudentLobbyRoom = ({
     };
 
     const quizStartedHandler = (updatedLobby: LobbyData) => {
-      if (updatedLobby.id === lobbyId) {
+      console.log("Started", updatedLobby);
+      if (updatedLobby.id == lobbyId) {
         onNotificationRef.current("Started", `Started "${updatedLobby.name}"`);
         router.push(`/lobby/student/${lobbyId}/start`);
       }
@@ -186,7 +199,7 @@ export const useStudentLobbyRoom = ({
       if (endedLobbyId === lobbyId) {
         localStorage.removeItem(STORAGE_KEYS.JOINED_LOBBY);
         onNotificationRef.current("Ended", `Ended "${lobby?.name}"`);
-        router.push("/lobby/student");
+        setShowResultDialog(true);
       }
     };
 
@@ -196,7 +209,9 @@ export const useStudentLobbyRoom = ({
       lobbyId: string;
     }) => {
       if (deletedLobbyId === lobbyId) {
-        router.push("/lobby/instructor");
+        localStorage.removeItem(STORAGE_KEYS.JOINED_LOBBY);
+        onNotificationRef.current("Deleted", "Lobby was deleted");
+        router.push("/lobby/student");
       }
     };
 
@@ -221,29 +236,21 @@ export const useStudentLobbyRoom = ({
       s.emit(SOCKET_EVENTS.GET_LOBBIES);
     };
 
+    // Handle connection
     if (!s.connected) {
       s.on("connect", emitJoin);
     } else {
       emitJoin();
     }
 
-    const timeout = setTimeout(() => {
+    // Set timeout for loading error
+    timeoutRef.current = setTimeout(() => {
       setLoadingError(true);
       setIsLoading(false);
-    }, 5000);
+    }, 10000); // Increased to 10 seconds
 
-    const lobbiesUpdatedHandler = (updatedLobbies: LobbyData[]) => {
-      const current = updatedLobbies.find((l) => l.id === lobbyId);
-      if (current) {
-        setLobby(current);
-        setIsLoading(false);
-        setLoadingError(false);
-        clearTimeout(timeout);
-      }
-    };
-
+    // Register event listeners
     s.on(SOCKET_EVENTS.LOBBY_UPDATED, lobbyUpdatedHandler);
-    s.on(SOCKET_EVENTS.LOBBY_UPDATED, lobbiesUpdatedHandler);
     s.on(SOCKET_EVENTS.JOIN_SUCCESS, joinSuccessHandler);
     s.on(SOCKET_EVENTS.JOIN_ERROR, joinErrorHandler);
     s.on(SOCKET_EVENTS.CHAT_HISTORY, chatHistoryHandler);
@@ -257,9 +264,8 @@ export const useStudentLobbyRoom = ({
     s.on(SOCKET_EVENTS.BANK_UPDATED, bankUpdatedHandler);
 
     return () => {
-      clearTimeout(timeout);
+      clearLoadingTimeout();
       s.off(SOCKET_EVENTS.LOBBY_UPDATED, lobbyUpdatedHandler);
-      s.off(SOCKET_EVENTS.LOBBY_UPDATED, lobbiesUpdatedHandler);
       s.off(SOCKET_EVENTS.JOIN_SUCCESS, joinSuccessHandler);
       s.off(SOCKET_EVENTS.JOIN_ERROR, joinErrorHandler);
       s.off(SOCKET_EVENTS.CHAT_HISTORY, chatHistoryHandler);
@@ -271,6 +277,7 @@ export const useStudentLobbyRoom = ({
       s.off(SOCKET_EVENTS.QUIZ_ENDED, quizEndedHandler);
       s.off(SOCKET_EVENTS.LOBBY_DELETED, lobbyDeletedHandler);
       s.off(SOCKET_EVENTS.BANK_UPDATED, bankUpdatedHandler);
+      s.off("connect", emitJoin);
     };
   }, [lobbyId, router]);
 
@@ -294,46 +301,16 @@ export const useStudentLobbyRoom = ({
     setChatInput("");
   };
 
-  const startQuiz = () => {
-    const s = getSocket();
-    if (s) s.emit(SOCKET_EVENTS.START_QUIZ, { lobbyId });
-    onNotificationRef.current("Started!", "Quiz started successfully!");
-  };
-
-  const endQuiz = () => {
-    const s = getSocket();
-    if (s) s.emit(SOCKET_EVENTS.END_QUIZ, { lobbyId });
-  };
-
-  const deleteLobby = () => {
-    const s = getSocket();
-
-    if (s) {
-      s.emit(SOCKET_EVENTS.DELETE_LOBBY, {
-        lobbyId,
-        userId: Cookies.get("user.id") || "",
-      });
-    }
-    onNotificationRef.current("Deleted!", "Lobby deleted successfully!");
-  };
-
   const leaveLobby = () => {
     const s = getSocket();
     if (!lobbyId) return;
 
+    setIsLeaving(true);
     s.emit(SOCKET_EVENTS.LEAVE_LOBBY, {
       lobbyId,
       userId,
       username: Cookies.get("user.username") || "Anonymous",
     });
-    onNotificationRef.current("Left!", "Left the lobby successfully!");
-  };
-
-  const updateLobbyBank = (lobbyId: string, bankId: number) => {
-    const s = getSocket();
-    if (s) {
-      s.emit(SOCKET_EVENTS.UPDATE_LOBBY_BANK, { lobbyId, bankId });
-    }
   };
 
   return {
@@ -345,13 +322,10 @@ export const useStudentLobbyRoom = ({
     isLoading,
     loadingError,
     showResultDialog,
+    setIsLoading,
     setChatInput,
     setShowResultDialog,
     sendMessage,
-    startQuiz,
-    endQuiz,
-    deleteLobby,
     leaveLobby,
-    updateLobbyBank,
   };
 };

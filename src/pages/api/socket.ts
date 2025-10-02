@@ -32,8 +32,18 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
           include: {
             instructor: true,
             _count: { select: { LobbyUser: true } },
+            bank: {
+              include: {
+                questions: {
+                  include: {
+                    answers: true,
+                  },
+                },
+              },
+            },
           },
         });
+
         socket.emit("lobby-updated", allLobbies);
       });
 

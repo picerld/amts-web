@@ -13,7 +13,7 @@ export default function LoadingWithCard({
     <AnimatePresence>
       {notification && (
         <motion.div
-          className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-md"
+          className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4"
           initial={{ opacity: 0, y: -20, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20, scale: 0.95 }}

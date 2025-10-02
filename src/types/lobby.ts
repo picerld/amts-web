@@ -1,3 +1,4 @@
+import { IBank } from "./bank";
 import { User } from "./user";
 
 export type LobbyData = {
@@ -9,6 +10,7 @@ export type LobbyData = {
     _count?: { LobbyUser: number };
     LobbyUser?: number[];
     bankId?: number;
+    bank?: IBank;
     instructor?: User
     startTime?: Date;
     createdAt?: Date;

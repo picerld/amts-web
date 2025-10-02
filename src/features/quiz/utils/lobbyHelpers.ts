@@ -52,8 +52,14 @@ export const canEndQuiz = (status: string): boolean => {
 };
 
 export const sortLobbies = (lobbies: LobbyData[]): LobbyData[] => {
+  const statusOrder: Record<string, number> = {
+    WAITING: 1,
+    ONGOING: 2,
+    FINISHED: 3,
+  };
+
   return [...lobbies].sort((a, b) => {
-    const statusDiff = a.status.localeCompare(b.status);
+    const statusDiff = (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
     if (statusDiff !== 0) return statusDiff;
 
     const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -62,6 +68,7 @@ export const sortLobbies = (lobbies: LobbyData[]): LobbyData[] => {
     return bDate - aDate;
   });
 };
+
 
 export const validateLobbyJoin = (status: LobbyStatus): JoinLobbyValidation => {
   if (status === LOBBY_STATUS.FINISHED) {

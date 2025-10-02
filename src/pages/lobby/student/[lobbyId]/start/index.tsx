@@ -14,10 +14,13 @@ import {
   ArrowLeft,
   CheckCircle,
   AlertCircle,
-  Radar,
-  Plane,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { useCountdown } from "@/features/quiz/hooks/useCountdown";
+import { IQuestion } from "@/types/question";
+import { ButtonQuiz } from "@/features/quiz/components/ui/button-quiz";
+import LoaderWithPlane from "@/features/quiz/components/dialog/LoaderWithPlane";
 
 type QuizData = {
   id: string;
@@ -36,7 +39,7 @@ export default function StudentQuizStart() {
   const [socket, setSocket] = useState<any | null>(null);
   const [userId, setUserId] = useState<string>("");
 
-  const { formattedTime, timeLeft, isExpired } = useCountdown(
+  const { formattedTime } = useCountdown(
     lobby?.duration || 0,
     lobby?.startTime?.toString() || undefined,
     lobby?.status === "ONGOING"
@@ -67,6 +70,7 @@ export default function StudentQuizStart() {
     // ===== Handlers =====
     const lobbyUpdatedHandler = (updatedLobbies: LobbyData[]) => {
       const currentLobby = updatedLobbies.find((l) => l.id === lobbyId);
+
       if (currentLobby) {
         setLobby(currentLobby);
 
@@ -93,6 +97,7 @@ export default function StudentQuizStart() {
     const quizStartedHandler = (updatedLobby: any) => {
       if (updatedLobby.id === lobbyId) {
         setCurrentQuiz({
+          ...updatedLobby,
           id: updatedLobby.id,
           name: updatedLobby.name,
           duration: updatedLobby.duration || 0,
@@ -146,44 +151,27 @@ export default function StudentQuizStart() {
     router.push("/lobby/student");
   };
 
-  // Loading UI
+  const [selectedAnswers, setSelectedAnswers] = useState<
+    Record<number, number>
+  >({});
+
+  const handleSelectAnswer = (questionIndex: number, answerIndex: number) => {
+    setSelectedAnswers((prev) => ({
+      ...prev,
+      [questionIndex]: answerIndex,
+    }));
+  };
+
+  const getCorrectAnswerIndex = (question: IQuestion) => {
+    return question.answers?.findIndex((answer) => answer.isTrue) ?? -1;
+  };
+
   if (isLoading) {
     return (
-      <motion.div
-        className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 flex items-center justify-center"
-        transition={{ duration: 0.4 }}
-      >
-        <div className="text-center">
-          <motion.div
-            className="relative mb-8"
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-          >
-            <Radar className="w-24 h-24 text-blue-400 mx-auto opacity-60" />
-            <motion.div
-              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-            >
-              <Plane className="w-12 h-12 text-blue-600" />
-            </motion.div>
-          </motion.div>
-          <motion.h3
-            className="text-2xl font-bold text-gray-800 mb-2"
-            transition={{ delay: 0.2, duration: 0.5 }}
-          >
-            Loading Mission Status...
-          </motion.h3>
-          <motion.p
-            className="text-blue-600"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-          >
-            Verifying mission parameters
-          </motion.p>
-        </div>
-      </motion.div>
+      <LoaderWithPlane
+        title="Loading mission status..."
+        subtitle="Verifying mission parameters"
+      />
     );
   }
 
@@ -311,7 +299,7 @@ export default function StudentQuizStart() {
                   animate={{ scale: [1, 1.05, 1] }}
                   transition={{ repeat: Infinity, duration: 1.5 }}
                 >
-                  LIVE EXERCISE
+                  🔴 LIVE EXERCISE
                 </motion.div>
               </div>
             </div>
@@ -356,7 +344,7 @@ export default function StudentQuizStart() {
               )}
             </AnimatePresence>
 
-            <div className="flex items-center justify-center min-h-[500px]">
+            <div className="flex items-center justify-center gap-5">
               <motion.div
                 className="bg-white shadow-2xl border border-blue-200 rounded-3xl p-12 text-center max-w-2xl mx-6"
                 initial={{ scale: 0.8, opacity: 0 }}
@@ -450,7 +438,6 @@ export default function StudentQuizStart() {
                   </p>
                 </motion.div>
 
-                {/* Status Indicator */}
                 <motion.div
                   className="flex items-center justify-center gap-2 text-blue-600"
                   initial={{ opacity: 0 }}
@@ -484,6 +471,209 @@ export default function StudentQuizStart() {
                     Return to Comms
                   </motion.button>
                 </motion.div> */}
+              </motion.div>
+
+              <motion.div
+                className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 mb-6 shadow-sm"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.4, duration: 0.45 }}
+              >
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  <AlertCircle className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-bold text-gray-800">
+                    Soal dan Jawaban
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-10">
+                  {lobby?.bank?.questions?.map((question, qIndex) => {
+                    const isAnswered = selectedAnswers[qIndex] !== undefined;
+                    const correctAnswerIndex = getCorrectAnswerIndex(question);
+                    const isCorrectAnswer =
+                      selectedAnswers[qIndex] === correctAnswerIndex;
+
+                    return (
+                      <motion.div
+                        key={qIndex}
+                        className="bg-white rounded-xl p-5 shadow-sm border border-gray-100"
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: 0.5 + qIndex * 0.1 }}
+                      >
+                        {/* Question */}
+                        <div className="flex gap-3 mb-4">
+                          <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                            {qIndex + 1}
+                          </div>
+                          <p className="text-gray-800 font-medium leading-relaxed pt-1">
+                            {question.question}
+                          </p>
+                        </div>
+
+                        {/* Answers */}
+                        <div className="space-y-2">
+                          {question.answers?.map((answer, aIndex) => {
+                            const optionLabel = String.fromCharCode(
+                              65 + aIndex
+                            );
+                            const isSelected =
+                              selectedAnswers[qIndex] === aIndex;
+                            const isCorrect = answer.isTrue;
+                            const showCorrect = isAnswered && isCorrect;
+                            const showWrong =
+                              isAnswered && isSelected && !isCorrect;
+
+                            return (
+                              <button
+                                key={aIndex}
+                                onClick={() =>
+                                  !isAnswered &&
+                                  handleSelectAnswer(qIndex, aIndex)
+                                }
+                                disabled={isAnswered}
+                                className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                                  isAnswered
+                                    ? "cursor-not-allowed"
+                                    : "cursor-pointer hover:shadow-md hover:border-gray-300"
+                                } ${
+                                  showCorrect
+                                    ? "bg-green-50 border-green-400"
+                                    : showWrong
+                                    ? "bg-red-50 border-red-400"
+                                    : isSelected
+                                    ? "bg-blue-50 border-blue-400"
+                                    : "bg-gray-50 border-gray-200"
+                                }`}
+                              >
+                                <div
+                                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                                    showCorrect
+                                      ? "bg-green-500 text-white"
+                                      : showWrong
+                                      ? "bg-red-500 text-white"
+                                      : isSelected
+                                      ? "bg-blue-500 text-white"
+                                      : "bg-gray-300 text-gray-700"
+                                  }`}
+                                >
+                                  {optionLabel}
+                                </div>
+                                <p
+                                  className={`text-sm text-left flex-1 ${
+                                    showCorrect
+                                      ? "text-green-800 font-medium"
+                                      : showWrong
+                                      ? "text-red-800"
+                                      : isSelected
+                                      ? "text-blue-800"
+                                      : "text-gray-700"
+                                  }`}
+                                >
+                                  {answer.text}
+                                </p>
+                                {showCorrect && (
+                                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                )}
+                                {showWrong && (
+                                  <XCircle className="w-5 h-5 text-red-600" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Result Feedback */}
+                        {isAnswered && (
+                          <motion.div
+                            className={`mt-4 p-3 rounded-lg ${
+                              isCorrectAnswer ? "bg-green-100" : "bg-red-100"
+                            }`}
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                          >
+                            <p
+                              className={`text-sm font-medium ${
+                                isCorrectAnswer
+                                  ? "text-green-800"
+                                  : "text-red-800"
+                              }`}
+                            >
+                              {isCorrectAnswer
+                                ? "✓ Jawaban Benar!"
+                                : "✗ Jawaban Salah!"}
+                            </p>
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+                <ButtonQuiz
+                  onClick={() => setSelectedAnswers({})}
+                  variant={"abort"}
+                  className="w-full mt-5"
+                >
+                  Reset!
+                </ButtonQuiz>
+
+                {/* Score Summary */}
+                {Object.keys(selectedAnswers).length > 0 && (
+                  <motion.div
+                    className="mt-6 p-4 bg-white rounded-xl border border-gray-200"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gray-700 font-medium">
+                        Progres:
+                      </span>
+                      <span className="text-blue-600 font-bold">
+                        {Object.keys(selectedAnswers).length} /{" "}
+                        {lobby?.bank?.questions?.length || 0}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full transition-all"
+                        style={{
+                          width: `${
+                            (Object.keys(selectedAnswers).length /
+                              (lobby?.bank?.questions?.length || 1)) *
+                            100
+                          }%`,
+                        }}
+                      />
+                    </div>
+
+                    {Object.keys(selectedAnswers).length ===
+                      lobby?.bank?.questions?.length && (
+                      <div className="pt-3 border-t border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-medium">
+                            Skor:
+                          </span>
+                          <span className="text-lg font-bold text-blue-600">
+                            {lobby?.bank?.questions?.reduce(
+                              (score, question, qIndex) => {
+                                const correctIndex =
+                                  getCorrectAnswerIndex(question);
+                                return (
+                                  score +
+                                  (selectedAnswers[qIndex] === correctIndex
+                                    ? 1
+                                    : 0)
+                                );
+                              },
+                              0
+                            )}{" "}
+                            / {lobby?.bank?.questions?.length || 0}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
               </motion.div>
             </div>
           </div>

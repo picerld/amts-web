@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Users, Clock, Star, Target, Plane } from "lucide-react";
+import { Users, Clock, Star, Target, Plane, RefreshCw } from "lucide-react";
 import { LobbyData } from "@/types/lobby";
 import { ANIMATION_VARIANTS } from "@/features/quiz/constans/lobbyConstans";
 
@@ -110,39 +110,58 @@ export default function StudentLobbyCard({
         <p className="text-gray-600 text-sm">-</p>
       </motion.div>
 
-      <motion.button
-        className={`w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-3 border-2 ${
-          isJoining === lobby.id
-            ? "bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed"
-            : "bg-blue-600 cursor-pointer hover:bg-blue-700 text-white border-blue-600 shadow-lg"
-        }`}
-        onClick={() => joinLobby(lobby.id, lobby.status)}
-        disabled={isJoining === lobby.id}
-        whileHover={isJoining !== lobby.id ? { scale: 1.02 } : {}}
-        whileTap={isJoining !== lobby.id ? { scale: 0.98 } : {}}
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1, transition: { delay: index * 0.1 + 0.4 } }}
-      >
-        {isJoining === lobby.id ? (
-          <>
-            <motion.div
-              className="w-5 h-5 border-2 border-gray-400 border-t-gray-600 rounded-full"
-              animate={{ rotate: 360 }}
-              transition={{
-                repeat: Infinity,
-                duration: 1,
-                ease: "linear",
-              }}
-            />
-            Enlisting...
-          </>
-        ) : (
-          <>
-            <Target className="w-5 h-5" />
-            Enlist for Mission
-          </>
-        )}
-      </motion.button>
+      {lobby.status === "FINISHED" ? (
+        <motion.button
+          className="w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-3 border-2 bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{
+            y: 0,
+            opacity: 1,
+            transition: { delay: index * 0.1 + 0.4 },
+          }}
+        >
+          <RefreshCw className="w-5 h-5" />
+          Mission Finished
+        </motion.button>
+      ) : (
+        <motion.button
+          className={`w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-3 border-2 ${
+            isJoining === lobby.id
+              ? "bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed"
+              : "bg-blue-600 cursor-pointer hover:bg-blue-700 text-white border-blue-600 shadow-lg"
+          }`}
+          onClick={() => joinLobby(lobby.id, lobby.status)}
+          disabled={isJoining === lobby.id}
+          whileHover={isJoining !== lobby.id ? { scale: 1.02 } : {}}
+          whileTap={isJoining !== lobby.id ? { scale: 0.98 } : {}}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{
+            y: 0,
+            opacity: 1,
+            transition: { delay: index * 0.1 + 0.4 },
+          }}
+        >
+          {isJoining === lobby.id ? (
+            <>
+              <motion.div
+                className="w-5 h-5 border-2 border-gray-400 border-t-gray-600 rounded-full"
+                animate={{ rotate: 360 }}
+                transition={{
+                  repeat: Infinity,
+                  duration: 1,
+                  ease: "linear",
+                }}
+              />
+              Enlisting...
+            </>
+          ) : (
+            <>
+              <Target className="w-5 h-5" />
+              Enlist for Mission
+            </>
+          )}
+        </motion.button>
+      )}
     </motion.div>
   );
 }

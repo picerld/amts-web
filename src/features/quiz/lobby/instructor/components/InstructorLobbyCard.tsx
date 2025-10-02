@@ -9,6 +9,7 @@ import {
   Target,
   CheckCircle,
   Plane,
+  Info,
 } from "lucide-react";
 import { LobbyData } from "@/types/lobby";
 import { ButtonQuiz } from "@/features/quiz/components/ui/button-quiz";
@@ -128,9 +129,18 @@ export default function InstructorLobbyCard({
             </ButtonQuiz>
 
             <div className="grid grid-cols-2 gap-3">
-              <ButtonQuiz variant={"start"} onClick={() => startQuiz(lobby.id)}>
-                <Target className="w-5 h-5" /> Start Mission
-              </ButtonQuiz>
+              {!lobby.bankId ? (
+                <ButtonQuiz variant={"start"} disabled>
+                  <Info className="w-5 h-5" /> Select Subject First!
+                </ButtonQuiz>
+              ) : (
+                <ButtonQuiz
+                  variant={"start"}
+                  onClick={() => startQuiz(lobby.id)}
+                >
+                  <Target className="w-5 h-5" /> Start Mission
+                </ButtonQuiz>
+              )}
 
               <QuizConfirmDialog
                 trigger={

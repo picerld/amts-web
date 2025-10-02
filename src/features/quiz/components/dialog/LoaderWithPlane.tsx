@@ -1,7 +1,13 @@
 import { motion } from "framer-motion";
 import { Plane, Radar } from "lucide-react";
 
-export default function LoaderWithPlane() {
+export default function LoaderWithPlane({
+  title,
+  subtitle,
+}: {
+  title?: string;
+  subtitle?: string;
+}) {
   return (
     <motion.div
       className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 flex items-center justify-center"
@@ -26,7 +32,7 @@ export default function LoaderWithPlane() {
           className="text-2xl font-bold text-gray-800 mb-2"
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          Loading...
+          {title ?? "Loading..."}
         </motion.h3>
         <motion.p
           className="text-blue-600"
@@ -34,7 +40,7 @@ export default function LoaderWithPlane() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
         >
-          Validating the lobbies
+          {subtitle ?? "Validating the mission"}
         </motion.p>
       </div>
     </motion.div>
