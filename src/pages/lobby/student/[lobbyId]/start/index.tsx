@@ -1,159 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
 import { useRouter } from "next/router";
-import Cookies from "js-cookie";
-import { getSocket } from "@/utils/socket";
-import { LobbyData } from "@/types/lobby";
-import {
-  Trophy,
-  Target,
-  Clock,
-  Shield,
-  ArrowLeft,
-  CheckCircle,
-  AlertCircle,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
 import { useCountdown } from "@/features/quiz/hooks/useCountdown";
-import { IQuestion } from "@/types/question";
-import { ButtonQuiz } from "@/features/quiz/components/ui/button-quiz";
 import LoaderWithPlane from "@/features/quiz/components/dialog/LoaderWithPlane";
-
-type QuizData = {
-  id: string;
-  name: string;
-  duration: number;
-};
+import { useStudentLobbyQuizStart } from "@/features/quiz/lobby/student/hooks/useStudentLobbyQuizStart";
+import { QuizCompletion } from "@/features/quiz/lobby/student/components/start/QuizCompletion";
+import { MissionStatusCard } from "@/features/quiz/lobby/student/components/start/MissionStatusCard";
+import { QuestionsPanel } from "@/features/quiz/lobby/student/components/start/QuestionPanel";
+import { NoQuizScreen } from "@/features/quiz/lobby/student/components/start/NoQuizScreen";
+import LobbyHeader from "@/features/quiz/components/container/LobbyHeader";
+import LoadingWithCard from "@/features/quiz/components/dialog/LoadingWithCard";
 
 export default function StudentQuizStart() {
   const router = useRouter();
   const { lobbyId } = router.query;
 
-  const [currentQuiz, setCurrentQuiz] = useState<QuizData | null>(null);
-  const [lobby, setLobby] = useState<LobbyData | null>(null);
   const [notification, setNotification] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [socket, setSocket] = useState<any | null>(null);
-  const [userId, setUserId] = useState<string>("");
-
-  const { formattedTime } = useCountdown(
-    lobby?.duration || 0,
-    lobby?.startTime?.toString() || undefined,
-    lobby?.status === "ONGOING"
-  );
-
-  useEffect(() => {
-    if (!router.isReady || !lobbyId) return;
-
-    const id =
-      Cookies.get("user.id") ?? "student-" + Math.floor(Math.random() * 1000);
-    setUserId(id);
-    const username = Cookies.get("user.username") || "Anonymous";
-
-    const s = getSocket();
-    setSocket(s);
-
-    // Verify this is the correct lobby from localStorage
-    const savedLobby = localStorage.getItem("joinedLobby");
-    if (savedLobby !== lobbyId) {
-      // Not the correct lobby, redirect to lobby list
-      router.push("/lobby/student");
-      return;
-    }
-
-    // Get initial lobby data
-    s.emit("get-lobbies");
-
-    // ===== Handlers =====
-    const lobbyUpdatedHandler = (updatedLobbies: LobbyData[]) => {
-      const currentLobby = updatedLobbies.find((l) => l.id === lobbyId);
-
-      if (currentLobby) {
-        setLobby(currentLobby);
-
-        // If quiz is ongoing, set quiz data
-        if (currentLobby.status === "ONGOING") {
-          setCurrentQuiz({
-            id: currentLobby.id,
-            name: currentLobby.name,
-            duration: currentLobby.duration || 0,
-          });
-        } else if (currentLobby.status === "WAITING") {
-          // Quiz hasn't started yet, redirect back to chat
-          router.push(`/lobby/student/${lobbyId}`);
-          return;
-        }
-      } else {
-        // Lobby not found, redirect to lobby list
-        router.push("/lobby/student");
-        return;
-      }
-      setIsLoading(false);
-    };
-
-    const quizStartedHandler = (updatedLobby: any) => {
-      if (updatedLobby.id === lobbyId) {
-        setCurrentQuiz({
-          ...updatedLobby,
-          id: updatedLobby.id,
-          name: updatedLobby.name,
-          duration: updatedLobby.duration || 0,
-        });
-        setLobby(updatedLobby);
-        showNotification(`Mission "${updatedLobby.name}" is now active!`);
-      }
-    };
-
-    const quizEndedHandler = ({ lobbyId: endedLobbyId }: any) => {
-      if (endedLobbyId === lobbyId) {
-        localStorage.removeItem("joinedLobby");
-        showNotification("Mission completed. Thank you for your service!");
-        // Redirect back to lobby list with a delay to show completion message
-        setTimeout(() => {
-          router.push("/lobby/student");
-        }, 3000);
-      }
-    };
-
-    const lobbyDeletedHandler = ({ lobbyId: deletedLobbyId }: any) => {
-      if (deletedLobbyId === lobbyId) {
-        localStorage.removeItem("joinedLobby");
-        showNotification("The mission has been cancelled by command");
-        router.push("/lobby/student");
-      }
-    };
-
-    s.on("lobby-updated", lobbyUpdatedHandler);
-    s.on("quiz-started", quizStartedHandler);
-    s.on("quiz-ended", quizEndedHandler);
-    s.on("lobby-deleted", lobbyDeletedHandler);
-
-    return () => {
-      s.off("lobby-updated", lobbyUpdatedHandler);
-      s.off("quiz-started", quizStartedHandler);
-      s.off("quiz-ended", quizEndedHandler);
-      s.off("lobby-deleted", lobbyDeletedHandler);
-    };
-  }, [lobbyId, router]);
-
-  // ===== Helpers =====
-  const showNotification = (msg: string) => setNotification(msg);
-  const dismissNotification = () => setNotification("");
-
-  const goBackToChat = () => {
-    router.push(`/lobby/student/${lobbyId}`);
-  };
-
-  const goBackToLobbyList = () => {
-    router.push("/lobby/student");
-  };
-
   const [selectedAnswers, setSelectedAnswers] = useState<
     Record<number, number>
   >({});
+
+  const {
+    currentQuiz,
+    isLoading,
+    loadingError,
+    lobby,
+    setShowResultDialog,
+    showResultDialog,
+    userId,
+  } = useStudentLobbyQuizStart({
+    lobbyId: lobbyId?.toString() ?? "",
+    onNotification: setNotification,
+  });
+
+  const { formattedTime } = useCountdown(
+    currentQuiz?.duration || 0,
+    currentQuiz?.startTime?.toString() || undefined,
+    currentQuiz?.status === "ONGOING"
+  );
+
+  const goBackToLobbyList = () => router.push("/lobby/student");
 
   const handleSelectAnswer = (questionIndex: number, answerIndex: number) => {
     setSelectedAnswers((prev) => ({
@@ -162,9 +49,13 @@ export default function StudentQuizStart() {
     }));
   };
 
-  const getCorrectAnswerIndex = (question: IQuestion) => {
-    return question.answers?.findIndex((answer) => answer.isTrue) ?? -1;
-  };
+  const handleReset = () => setSelectedAnswers({});
+
+  const dismissNotification = () => setNotification("");
+
+  if (loadingError) {
+    return <NoQuizScreen onReturnToBase={goBackToLobbyList} />;
+  }
 
   if (isLoading) {
     return (
@@ -175,573 +66,40 @@ export default function StudentQuizStart() {
     );
   }
 
-  // Quiz completion UI
-  if (currentQuiz && formattedTime == "00:00:00") {
+  if (currentQuiz && formattedTime === "00:00:00") {
     return (
-      <motion.div
-        className="min-h-screen bg-gradient-to-br from-green-50 via-green-100 to-green-200"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
-      >
-        <div className="flex items-center justify-center min-h-screen">
-          <motion.div
-            className="bg-white shadow-2xl border border-green-200 rounded-3xl p-12 text-center max-w-2xl mx-6"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          >
-            <motion.div
-              className="mb-8"
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-            >
-              <motion.div
-                className="p-6 bg-green-500 rounded-full w-24 h-24 mx-auto mb-6 shadow-lg"
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ repeat: Infinity, duration: 2 }}
-              >
-                <CheckCircle className="w-12 h-12 text-white mx-auto" />
-              </motion.div>
-              <h1 className="text-4xl font-bold text-gray-800 mb-4">
-                Mission Complete!
-              </h1>
-              <div className="flex items-center justify-center gap-2 text-green-600 mb-6">
-                <Trophy className="w-6 h-6" />
-                <span className="text-xl font-semibold">
-                  {currentQuiz.name}
-                </span>
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="bg-green-50 border border-green-200 rounded-2xl p-6 mb-6"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.3, duration: 0.4 }}
-            >
-              <h3 className="text-xl font-bold text-gray-800 mb-2">
-                Training Complete
-              </h3>
-              <p className="text-green-700 font-medium">
-                Your performance has been recorded and will be evaluated by
-                command.
-              </p>
-            </motion.div>
-
-            <motion.div
-              className="flex items-center justify-center gap-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.5 }}
-            >
-              <motion.button
-                onClick={goBackToLobbyList}
-                className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 rounded-xl font-semibold shadow-lg flex items-center gap-2"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Trophy className="w-5 h-5" />
-                Return to Base
-              </motion.button>
-            </motion.div>
-          </motion.div>
-        </div>
-      </motion.div>
+      <QuizCompletion
+        quizName={currentQuiz.name}
+        onReturnToBase={goBackToLobbyList}
+      />
     );
   }
 
-  // Quiz Active UI
   if (currentQuiz) {
     return (
-      <motion.div
-        className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
-      >
-        {/* Header */}
-        <motion.div
-          className="relative overflow-hidden bg-white shadow-lg"
-          initial={{ y: -50, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-transparent"></div>
-          <div className="relative px-6 py-6">
-            <div className="max-w-7xl mx-auto">
-              <div className="flex items-center justify-between">
-                <motion.div
-                  className="flex items-center gap-4"
-                  whileHover={{ x: 5 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <motion.div
-                    className="p-3 bg-main rounded-full shadow-lg"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Shield className="w-8 h-8 text-white" />
-                  </motion.div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-800">
-                      {currentQuiz.name}
-                    </h1>
-                    <p className="text-blue-600 font-medium">
-                      Mission Status: ACTIVE
-                    </p>
-                  </div>
-                </motion.div>
+      <LobbyHeader>
+        <LoadingWithCard
+          notification={notification}
+          dismissNotification={dismissNotification}
+        />
+        <div className="flex items-center justify-center gap-5">
+          <MissionStatusCard
+            quizName={currentQuiz.name}
+            formattedTime={formattedTime}
+          />
 
-                <motion.div
-                  className="px-4 py-2 bg-red-100 text-red-700 border border-red-300 rounded-full text-sm font-semibold"
-                  animate={{ scale: [1, 1.05, 1] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                >
-                  🔴 LIVE EXERCISE
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        <div className="px-6 py-8">
-          <div className="max-w-7xl mx-auto">
-            {/* Notifications */}
-            <AnimatePresence>
-              {notification && (
-                <motion.div
-                  className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-md"
-                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <motion.div
-                        className="p-2 bg-main rounded-lg"
-                        animate={{ scale: [1, 1.1, 1] }}
-                        transition={{ repeat: Infinity, duration: 2 }}
-                      >
-                        <Target className="w-4 h-4 text-white" />
-                      </motion.div>
-                      <p className="text-gray-800 font-medium">
-                        {notification}
-                      </p>
-                    </div>
-                    <motion.button
-                      onClick={dismissNotification}
-                      className="text-blue-600 hover:text-blue-800 text-sm underline font-medium"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      Dismiss
-                    </motion.button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="flex items-center justify-center gap-5">
-              <motion.div
-                className="bg-white shadow-2xl border border-blue-200 rounded-3xl p-12 text-center max-w-2xl mx-6"
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-              >
-                <motion.div
-                  className="mb-8"
-                  initial={{ y: -20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.2, duration: 0.5 }}
-                >
-                  <motion.div
-                    className="p-6 bg-main rounded-full w-24 h-24 mx-auto mb-6 shadow-lg"
-                    whileHover={{ scale: 1.1 }}
-                    animate={{ rotate: [0, 5, -5, 0] }}
-                    transition={{
-                      rotate: { repeat: Infinity, duration: 3 },
-                      scale: { duration: 0.2 },
-                    }}
-                  >
-                    <Trophy className="w-12 h-12 text-white mx-auto" />
-                  </motion.div>
-                  <h2 className="text-4xl font-bold text-gray-800 mb-4">
-                    {currentQuiz.name}
-                  </h2>
-                  <div className="flex items-center justify-center gap-2 text-blue-600 mb-6">
-                    <Target className="w-5 h-5" />
-                    <span className="text-xl font-semibold">
-                      Mission Active
-                    </span>
-                  </div>
-                </motion.div>
-
-                {/* Mission Status Cards */}
-                <motion.div
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8"
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.3, duration: 0.4 }}
-                >
-                  <motion.div
-                    className="bg-blue-50 border border-blue-200 rounded-2xl p-6"
-                    whileHover={{ scale: 1.02 }}
-                  >
-                    <div className="flex items-center justify-center gap-3 text-gray-800 mb-2">
-                      <Clock className="w-6 h-6 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-600">
-                        Time Remaining
-                      </span>
-                    </div>
-                    <div className="text-3xl font-bold text-gray-800">
-                      {formattedTime}
-                    </div>
-                  </motion.div>
-
-                  <motion.div
-                    className="bg-green-50 border border-green-200 rounded-2xl p-6"
-                    whileHover={{ scale: 1.02 }}
-                  >
-                    <div className="flex items-center justify-center gap-3 text-gray-800 mb-2">
-                      <CheckCircle className="w-6 h-6 text-green-600" />
-                      <span className="text-sm font-medium text-green-600">
-                        Status
-                      </span>
-                    </div>
-                    <div className="text-lg font-bold text-gray-800">
-                      Operational
-                    </div>
-                  </motion.div>
-                </motion.div>
-
-                {/* Mission Brief */}
-                <motion.div
-                  className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 mb-6"
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.4, duration: 0.4 }}
-                >
-                  <div className="flex items-center justify-center gap-2 mb-3">
-                    <AlertCircle className="w-5 h-5 text-yellow-600" />
-                    <h3 className="text-lg font-bold text-gray-800">
-                      Mission Instructions
-                    </h3>
-                  </div>
-                  <p className="text-gray-700 text-sm leading-relaxed">
-                    Your training exercise is now active. Follow all safety
-                    protocols and complete assigned objectives within the
-                    specified timeframe. Maintain communication discipline and
-                    await further instructions from your commanding officer.
-                  </p>
-                </motion.div>
-
-                <motion.div
-                  className="flex items-center justify-center gap-2 text-blue-600"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
-                >
-                  <motion.div
-                    className="w-3 h-3 bg-blue-500 rounded-full"
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ repeat: Infinity, duration: 1.5 }}
-                  />
-                  <span className="font-medium">
-                    Training exercise in progress...
-                  </span>
-                </motion.div>
-
-                {/* Navigation Buttons */}
-                {/* <motion.div
-                  className="flex items-center justify-center gap-4 mt-8"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6, duration: 0.5 }}
-                >
-                  <motion.button
-                    onClick={goBackToChat}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-medium border-2 border-gray-300 flex items-center gap-2"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Return to Comms
-                  </motion.button>
-                </motion.div> */}
-              </motion.div>
-
-              <motion.div
-                className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6 mb-6 shadow-sm"
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.4, duration: 0.45 }}
-              >
-                <div className="flex items-center justify-center gap-2 mb-6">
-                  <AlertCircle className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-bold text-gray-800">
-                    Soal dan Jawaban
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-2 gap-10">
-                  {lobby?.bank?.questions?.map((question, qIndex) => {
-                    const isAnswered = selectedAnswers[qIndex] !== undefined;
-                    const correctAnswerIndex = getCorrectAnswerIndex(question);
-                    const isCorrectAnswer =
-                      selectedAnswers[qIndex] === correctAnswerIndex;
-
-                    return (
-                      <motion.div
-                        key={qIndex}
-                        className="bg-white rounded-xl p-5 shadow-sm border border-gray-100"
-                        initial={{ x: -20, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: 0.5 + qIndex * 0.1 }}
-                      >
-                        {/* Question */}
-                        <div className="flex gap-3 mb-4">
-                          <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                            {qIndex + 1}
-                          </div>
-                          <p className="text-gray-800 font-medium leading-relaxed pt-1">
-                            {question.question}
-                          </p>
-                        </div>
-
-                        {/* Answers */}
-                        <div className="space-y-2">
-                          {question.answers?.map((answer, aIndex) => {
-                            const optionLabel = String.fromCharCode(
-                              65 + aIndex
-                            );
-                            const isSelected =
-                              selectedAnswers[qIndex] === aIndex;
-                            const isCorrect = answer.isTrue;
-                            const showCorrect = isAnswered && isCorrect;
-                            const showWrong =
-                              isAnswered && isSelected && !isCorrect;
-
-                            return (
-                              <button
-                                key={aIndex}
-                                onClick={() =>
-                                  !isAnswered &&
-                                  handleSelectAnswer(qIndex, aIndex)
-                                }
-                                disabled={isAnswered}
-                                className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                                  isAnswered
-                                    ? "cursor-not-allowed"
-                                    : "cursor-pointer hover:shadow-md hover:border-gray-300"
-                                } ${
-                                  showCorrect
-                                    ? "bg-green-50 border-green-400"
-                                    : showWrong
-                                    ? "bg-red-50 border-red-400"
-                                    : isSelected
-                                    ? "bg-blue-50 border-blue-400"
-                                    : "bg-gray-50 border-gray-200"
-                                }`}
-                              >
-                                <div
-                                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-                                    showCorrect
-                                      ? "bg-green-500 text-white"
-                                      : showWrong
-                                      ? "bg-red-500 text-white"
-                                      : isSelected
-                                      ? "bg-blue-500 text-white"
-                                      : "bg-gray-300 text-gray-700"
-                                  }`}
-                                >
-                                  {optionLabel}
-                                </div>
-                                <p
-                                  className={`text-sm text-left flex-1 ${
-                                    showCorrect
-                                      ? "text-green-800 font-medium"
-                                      : showWrong
-                                      ? "text-red-800"
-                                      : isSelected
-                                      ? "text-blue-800"
-                                      : "text-gray-700"
-                                  }`}
-                                >
-                                  {answer.text}
-                                </p>
-                                {showCorrect && (
-                                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                )}
-                                {showWrong && (
-                                  <XCircle className="w-5 h-5 text-red-600" />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Result Feedback */}
-                        {isAnswered && (
-                          <motion.div
-                            className={`mt-4 p-3 rounded-lg ${
-                              isCorrectAnswer ? "bg-green-100" : "bg-red-100"
-                            }`}
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                          >
-                            <p
-                              className={`text-sm font-medium ${
-                                isCorrectAnswer
-                                  ? "text-green-800"
-                                  : "text-red-800"
-                              }`}
-                            >
-                              {isCorrectAnswer
-                                ? "✓ Jawaban Benar!"
-                                : "✗ Jawaban Salah!"}
-                            </p>
-                          </motion.div>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </div>
-                <ButtonQuiz
-                  onClick={() => setSelectedAnswers({})}
-                  variant={"abort"}
-                  className="w-full mt-5"
-                >
-                  Reset!
-                </ButtonQuiz>
-
-                {/* Score Summary */}
-                {Object.keys(selectedAnswers).length > 0 && (
-                  <motion.div
-                    className="mt-6 p-4 bg-white rounded-xl border border-gray-200"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-gray-700 font-medium">
-                        Progres:
-                      </span>
-                      <span className="text-blue-600 font-bold">
-                        {Object.keys(selectedAnswers).length} /{" "}
-                        {lobby?.bank?.questions?.length || 0}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 mb-3">
-                      <div
-                        className="bg-blue-500 h-2 rounded-full transition-all"
-                        style={{
-                          width: `${
-                            (Object.keys(selectedAnswers).length /
-                              (lobby?.bank?.questions?.length || 1)) *
-                            100
-                          }%`,
-                        }}
-                      />
-                    </div>
-
-                    {Object.keys(selectedAnswers).length ===
-                      lobby?.bank?.questions?.length && (
-                      <div className="pt-3 border-t border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-700 font-medium">
-                            Skor:
-                          </span>
-                          <span className="text-lg font-bold text-blue-600">
-                            {lobby?.bank?.questions?.reduce(
-                              (score, question, qIndex) => {
-                                const correctIndex =
-                                  getCorrectAnswerIndex(question);
-                                return (
-                                  score +
-                                  (selectedAnswers[qIndex] === correctIndex
-                                    ? 1
-                                    : 0)
-                                );
-                              },
-                              0
-                            )}{" "}
-                            / {lobby?.bank?.questions?.length || 0}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </motion.div>
-            </div>
-          </div>
+          {currentQuiz.bank?.questions && (
+            <QuestionsPanel
+              questions={currentQuiz.bank.questions}
+              selectedAnswers={selectedAnswers}
+              onSelectAnswer={handleSelectAnswer}
+              onReset={handleReset}
+            />
+          )}
         </div>
-
-        <style jsx global>{`
-          :root {
-            --bg-main: #2563eb;
-          }
-          .bg-main {
-            background-color: var(--bg-main);
-          }
-          .border-main {
-            border-color: var(--bg-main);
-          }
-          .text-main {
-            color: var(--bg-main);
-          }
-        `}</style>
-      </motion.div>
+      </LobbyHeader>
     );
   }
 
-  // No quiz data - redirect
-  return (
-    <motion.div
-      className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 flex items-center justify-center"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
-    >
-      <div className="text-center">
-        <motion.div
-          className="mb-8"
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-        >
-          <AlertCircle className="w-24 h-24 text-yellow-500 mx-auto opacity-60" />
-        </motion.div>
-        <motion.h3
-          className="text-2xl font-bold text-gray-800 mb-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-        >
-          Mission Not Found
-        </motion.h3>
-        <motion.p
-          className="text-gray-600 mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          The requested mission could not be located or may have been cancelled.
-        </motion.p>
-        <motion.button
-          onClick={goBackToLobbyList}
-          className="bg-main hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg flex items-center gap-2 mx-auto"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <ArrowLeft className="w-5 h-5" />
-          Return to Base
-        </motion.button>
-      </div>
-    </motion.div>
-  );
+  return <NoQuizScreen onReturnToBase={goBackToLobbyList} />;
 }

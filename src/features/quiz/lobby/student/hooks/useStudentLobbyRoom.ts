@@ -49,14 +49,13 @@ export const useStudentLobbyRoom = ({
 
     const s = getSocket();
 
-    // Check saved lobby first
     const savedLobby = localStorage.getItem(STORAGE_KEYS.JOINED_LOBBY);
+    
     if (savedLobby && savedLobby !== lobbyId) {
       router.push(`/lobby/student/${savedLobby}`);
       return;
     }
 
-    // Store current lobby
     localStorage.setItem(STORAGE_KEYS.JOINED_LOBBY, lobbyId);
 
     const clearLoadingTimeout = () => {
@@ -243,13 +242,11 @@ export const useStudentLobbyRoom = ({
       emitJoin();
     }
 
-    // Set timeout for loading error
     timeoutRef.current = setTimeout(() => {
       setLoadingError(true);
       setIsLoading(false);
-    }, 10000); // Increased to 10 seconds
+    }, 10000);
 
-    // Register event listeners
     s.on(SOCKET_EVENTS.LOBBY_UPDATED, lobbyUpdatedHandler);
     s.on(SOCKET_EVENTS.JOIN_SUCCESS, joinSuccessHandler);
     s.on(SOCKET_EVENTS.JOIN_ERROR, joinErrorHandler);

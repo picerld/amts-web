@@ -14,16 +14,17 @@ import {
   AlertDialogFooter,
 } from "@/components/ui/alert-dialog";
 import { Trophy, BarChart3, Star, Users, Target } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import StudentLobbyContainer from "@/features/quiz/lobby/student/pages/StudentLobbyContainer";
 import { ButtonQuiz } from "@/features/quiz/components/ui/button-quiz";
 import { useStudentLobbyRoom } from "@/features/quiz/lobby/student/hooks";
+import { NoQuizScreen } from "@/features/quiz/lobby/student/components/start/NoQuizScreen";
 
 export default function StudentLobbyRoom() {
   const router = useRouter();
 
   const { lobbyId } = router.query;
-  
+
   const [notification, setNotification] = useState<string>("");
 
   const {
@@ -44,11 +45,27 @@ export default function StudentLobbyRoom() {
     onNotification: setNotification,
   });
 
+  useEffect(() => {
+    if (lobby?.status === "ONGOING") {
+      router.push(`/lobby/student/${lobbyId}/start`);
+    }
+  }, [lobby, router, lobbyId]);
+
   const dismissNotification = () => setNotification("");
 
-  if (loadingError) return <div>Error</div>;
+  const goBackToLobbyList = () => router.push("/lobby/student");
 
-  if (isLoading) return <LoaderWithPlane />;
+  if (loadingError) {
+    return <NoQuizScreen onReturnToBase={goBackToLobbyList} />;
+  }
+
+  if (isLoading)
+    return (
+      <LoaderWithPlane
+        title="Loading mission status..."
+        subtitle="Verifying mission parameters"
+      />
+    );
 
   return (
     <LobbyHeader

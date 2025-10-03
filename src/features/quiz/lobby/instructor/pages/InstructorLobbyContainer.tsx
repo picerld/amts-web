@@ -181,11 +181,23 @@ export const InstructorLobbyContainer: React.FC<
           startTime={lobby.startTime?.toString() || ""}
           status={lobby.status}
           onExpired={() => {
-            showNotif({
-              title: "Time's Up!",
-              description: "The quiz will end automatically in 5 seconds.",
-            });
-            setTimeout(() => endQuiz(lobby.id), 5000);
+            let countdown = 5;
+
+            const countdownInterval = setInterval(() => {
+              showNotif({
+                title: "Time's Up!",
+                description: `The quiz will end automatically in ${countdown} second${
+                  countdown > 1 ? "s" : ""
+                }.`,
+              });
+
+              if (countdown === 1) {
+                clearInterval(countdownInterval);
+                endQuiz(lobby.id);
+              }
+
+              countdown--;
+            }, 1000);
           }}
         />
 

@@ -51,7 +51,7 @@ export default function InstructorLobbyRoom() {
     onNotification: (title, description) => showNotif({ title, description }),
   });
 
-  if (isLoading) return <LoaderWithPlane />;
+  if (isLoading) return <LoaderWithPlane title="Loading" />;
 
   return (
     <LobbyHeader padded={false} backHref="/lobby/instructor" withBack>
