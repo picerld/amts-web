@@ -12,18 +12,22 @@ const buttonQuizVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-blue-600 hover:bg-blue-700 text-white px-6 py-2",
+        primary: "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3",
         softPrimary:
           "bg-blue-200 border border-blue-400 hover:bg-blue-300 text-blue-600 py-3 flex-1",
         softDarkPrimary:
           "bg-blue-900/40 hover:bg-blue-800/60 text-blue-200 border border-blue-500/40 py-3 flex-1",
         secondary:
-          "bg-white text-gray-900 hover:bg-gray-100 px-6 py-4 justify-center",
+          "bg-white text-gray-900 hover:bg-gray-100 px-6 py-3 justify-center",
+        secondaryGray:
+          "bg-gray-100 text-gray-900 hover:bg-gray-200 px-6 py-3 justify-center",
         start:
           "bg-green-100 text-green-700 border border-green-300 py-3 flex-1 shadow-inner hover:bg-green-200",
         completed:
           "bg-green-100 text-green-700 border border-green-300 py-3 flex-1 shadow-inner",
         abort:
+          "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white px-6 py-3",
+        softAbort:
           "bg-red-200 border border-red-400 hover:bg-red-300 text-red-600 py-3 flex-1",
       },
       size: {

@@ -21,6 +21,7 @@ interface QuizConfirmDialogProps {
   cancelText?: string;
   onConfirm: () => void;
 
+  mode?: "dark" | "light";
   contentClassName?: string;
   footerClassName?: string;
 }
@@ -29,42 +30,47 @@ export function QuizConfirmDialog({
   trigger,
   title = "Are you sure?",
   description = "This action cannot be undone.",
-  confirmText = "Yes,Confirm",
+  confirmText = "Yes, Confirm",
   cancelText = "No, Cancel",
   onConfirm,
+  mode = "dark",
   contentClassName,
   footerClassName,
 }: QuizConfirmDialogProps) {
   const [open, setOpen] = useState(false);
 
+  const isDark = mode === "dark";
+  const contentClasses = isDark
+    ? `bg-[#0A0F1F] border border-blue-500/30 shadow-[0_0_25px_rgba(0,123,255,0.25)] text-white rounded-xl`
+    : `bg-white border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.3)] text-gray-900 rounded-xl`;
+
+  const iconWrapperClasses = isDark
+    ? "p-4 bg-[rgba(0,123,255,0.25)] rounded-full mb-2"
+    : "p-4 bg-blue-100 rounded-full mb-2";
+
+  const titleClasses = isDark
+    ? "text-blue-400 font-bold text-2xl tracking-wide"
+    : "text-blue-700 font-bold text-2xl tracking-wide";
+
+  const descClasses = isDark
+    ? "text-blue-200/70 text-lg"
+    : "text-gray-700 text-lg";
+
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
 
-      <AlertDialogContent
-        className={`bg-[#0A0F1F] border border-blue-500/30 shadow-[0_0_25px_rgba(0,123,255,0.25)] text-white rounded-xl ${
-          contentClassName || ""
-        }`}
-      >
+      <AlertDialogContent className={`${contentClasses} ${contentClassName || ""}`}>
         <AlertDialogHeader className="flex flex-col justify-center items-center">
-          <div className="p-4 bg-[rgba(0,123,255,0.25)] rounded-full mb-2">
-            <Info className="text-blue-200 w-8 h-8" strokeWidth={2.5} />
+          <div className={iconWrapperClasses}>
+            <Info className={`${isDark ? "text-blue-200" : "text-blue-600"} w-8 h-8`} strokeWidth={2.5} />
           </div>
-          <AlertDialogTitle className="text-blue-400 font-bold text-2xl tracking-wide">
-            {title}
-          </AlertDialogTitle>
-          <AlertDialogDescription className="text-blue-200/70 text-lg">
-            {description}
-          </AlertDialogDescription>
+          <AlertDialogTitle className={titleClasses}>{title}</AlertDialogTitle>
+          <AlertDialogDescription className={descClasses}>{description}</AlertDialogDescription>
         </AlertDialogHeader>
 
-        <AlertDialogFooter
-          className={`flex justify-end gap-3 mt-4 ${footerClassName || ""}`}
-        >
-          <ButtonQuiz
-            onClick={() => setOpen(false)}
-            variant={"softDarkPrimary"}
-          >
+        <AlertDialogFooter className={`flex justify-end gap-3 mt-4 ${footerClassName || ""}`}>
+          <ButtonQuiz className="flex-1" onClick={() => setOpen(false)} variant={isDark ? "softDarkPrimary" : "primary"}>
             {cancelText}
           </ButtonQuiz>
 
@@ -74,6 +80,7 @@ export function QuizConfirmDialog({
               setOpen(false);
             }}
             variant={"abort"}
+            className="flex-1"
           >
             {confirmText}
           </ButtonQuiz>

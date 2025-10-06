@@ -189,3 +189,38 @@ export default function LobbyHeader({
     </motion.div>
   );
 }
+
+{/* <LobbyHeader lobby={lobby} withBack />
+
+<LobbyHeader 
+  title="Battle Arena"
+  subtitle="Prepare for combat"
+  icon={Swords}
+  iconClassName="bg-red-600"
+  withBack
+/>
+
+<LobbyHeader 
+  status="ONGOING"
+  statusConfig={{
+    ONGOING: {
+      label: "🔥 Live Now",
+      className: "bg-red-100 text-red-700 border border-red-300",
+      animated: true
+    }
+  }}
+/>
+
+<LobbyHeader 
+  rightContent={
+    <button className="px-4 py-2 bg-blue-600 text-white rounded">
+      Settings
+    </button>
+  }
+  belowHeader={
+    <div className="flex gap-4">
+      <button>Tab 1</button>
+      <button>Tab 2</button>
+    </div>
+  }
+/> */}
