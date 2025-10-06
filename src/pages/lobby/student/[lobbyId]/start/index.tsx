@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useCountdown } from "@/features/quiz/hooks/useCountdown";
 import LoaderWithPlane from "@/features/quiz/components/dialog/LoaderWithPlane";
@@ -14,75 +14,55 @@ import { NoQuizScreen } from "@/features/quiz/lobby/student/components/start/NoQ
 import LobbyHeader from "@/features/quiz/components/container/LobbyHeader";
 import LoadingWithCard from "@/features/quiz/components/dialog/LoadingWithCard";
 import { HeadMetaData } from "@/components/meta/HeadMetaData";
+import { STORAGE_KEYS } from "@/features/quiz/constans/lobbyConstans";
 
 export default function StudentQuizStart() {
   const router = useRouter();
   const { lobbyId } = router.query;
 
   const [notification, setNotification] = useState<string>("");
-  const [selectedAnswers, setSelectedAnswers] = useState<
-    Record<number, number>
-  >({});
-  const [showResultsDialog, setShowResultsDialog] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
 
   const {
+    // lobby,
+    lobbyUser,
+    userId,
+    // questions,
     currentQuiz,
     isLoading,
     loadingError,
-    lobby,
-    setShowResultDialog,
+    answeredCount,
+    submitQuiz,
+    calculateScore,
+    handleAnswer,
+    handleReset,
     showResultDialog,
-    userId,
+    setShowResultDialog,
+    selectedAnswers,
   } = useStudentLobbyQuizStart({
     lobbyId: lobbyId?.toString() ?? "",
     onNotification: setNotification,
   });
-
   const { formattedTime } = useCountdown(
     currentQuiz?.duration || 0,
     currentQuiz?.startTime?.toString() || undefined,
     currentQuiz?.status === "ONGOING"
   );
 
-  const goBackToLobbyList = () => router.push("/lobby/student");
-
-  const handleSelectAnswer = (questionIndex: number, answerIndex: number) => {
-    setSelectedAnswers((prev) => ({
-      ...prev,
-      [questionIndex]: answerIndex,
-    }));
+  const goBackToLobbyList = () => {
+    localStorage.removeItem(STORAGE_KEYS.JOINED_LOBBY);
+    localStorage.removeItem(`${STORAGE_KEYS.QUIZ_PROGRESS}:${lobbyId}`);
+    router.push("/lobby/student");
   };
-
-  const handleReset = () => setSelectedAnswers({});
-
   const dismissNotification = () => setNotification("");
 
-  const handleSubmitClick = () => {
-    // Tampilkan dialog konfirmasi
-    setShowConfirmDialog(true);
-  };
-
-  const handleConfirmSubmit = () => {
-    // Setelah konfirmasi, tampilkan hasil
-    setShowResultsDialog(true);
-  };
-
-  const calculateScore = () => {
-    if (!currentQuiz?.bank?.questions) return 0;
-    return currentQuiz.bank.questions.reduce((score, question, qIndex) => {
-      const correctIndex =
-        question.answers?.findIndex((answer) => answer.isTrue) ?? -1;
-      return score + (selectedAnswers[qIndex] === correctIndex ? 1 : 0);
-    }, 0);
-  };
+  const handleSubmitClick = () => setShowConfirmDialog(true);
 
   const getConfirmationMessage = () => {
     const totalQuestions = currentQuiz?.bank?.questions?.length || 0;
-    const answeredCount = Object.keys(selectedAnswers).length;
     const unansweredCount = totalQuestions - answeredCount;
 
-    if (answeredCount === totalQuestions) {
+    if (answeredCount == totalQuestions) {
       return {
         title: "Konfirmasi Submit",
         message: `Anda yakin ingin submit semua jawaban? Setelah submit, Anda tidak bisa mengubah jawaban lagi.`,
@@ -120,7 +100,6 @@ export default function StudentQuizStart() {
   }
 
   if (currentQuiz) {
-    const answeredCount = Object.keys(selectedAnswers).length;
     const totalQuestions = currentQuiz.bank?.questions?.length || 0;
     const confirmMessage = getConfirmationMessage();
 
@@ -148,18 +127,22 @@ export default function StudentQuizStart() {
             <MissionStatusCard
               quizName={currentQuiz.name}
               formattedTime={formattedTime}
-              onSubmit={handleSubmitClick}
               answeredCount={answeredCount}
               totalQuestions={totalQuestions}
+              onSubmit={handleSubmitClick}
             />
           </div>
 
           {currentQuiz.bank?.questions && (
             <QuestionsPanel
+              lobbyId={lobbyId?.toString() || ""}
+              answeredCount={answeredCount}
+              calculateScore={calculateScore}
+              handleAnswer={handleAnswer}
+              handleReset={handleReset}
+              onReset={handleReset}
               questions={currentQuiz.bank.questions}
               selectedAnswers={selectedAnswers}
-              onSelectAnswer={handleSelectAnswer}
-              onReset={handleReset}
               onSubmit={handleSubmitClick}
             />
           )}
@@ -167,7 +150,9 @@ export default function StudentQuizStart() {
           <ConfirmationDialog
             isOpen={showConfirmDialog}
             onClose={() => setShowConfirmDialog(false)}
-            onConfirm={handleConfirmSubmit}
+            onConfirm={() =>
+              submitQuiz({ lobbyId: lobbyId?.toString() || "", userId: userId })
+            }
             title={confirmMessage.title}
             message={confirmMessage.message}
             type={confirmMessage.type}
@@ -176,9 +161,11 @@ export default function StudentQuizStart() {
           />
 
           <QuizResultsDialog
-            isOpen={showResultsDialog}
-            onClose={() => setShowResultsDialog(false)}
-            score={calculateScore()}
+            isOpen={showResultDialog || lobbyUser?.finished as boolean}
+            onClose={() => {
+              router.push(`/lobby/student/${lobbyId}/finished`);
+            }}
+            score={calculateScore(selectedAnswers)}
             totalQuestions={totalQuestions}
             quizName={currentQuiz.name}
             onReturnToLobby={goBackToLobbyList}

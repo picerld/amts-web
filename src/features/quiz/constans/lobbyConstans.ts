@@ -31,10 +31,25 @@ export const SOCKET_EVENTS = {
   STUDENT_LEFT: 'student-left',
   BANK_UPDATED: 'bank-updated',
   UPDATE_LOBBY_BANK: 'update-lobby-bank',
+
+  // LOBBY USER
+  GET_LOBBY_USER: 'get-lobby-user',
+  LOBBY_USER_UPDATED: 'lobby-user-updated',
+
+  // QUIZ STUDENT
+  QUESTIONS: "questions",
+  GET_QUESTIONS: "get-questions",
+  QUIZ_SUBMIT: "quiz-submit",
+  QUIZ_SUBMITTED: "quiz-submitted",
+
+  // TODO
+  STUDENT_ANSWERED: "student-answered",
+  UPDATE_PROGRESS: "update-progress",
 } as const;
 
 export const STORAGE_KEYS = {
   JOINED_LOBBY: 'joinedLobby',
+  QUIZ_PROGRESS: 'quiz-progress',
 } as const;
 
 export const ANIMATION_VARIANTS = {

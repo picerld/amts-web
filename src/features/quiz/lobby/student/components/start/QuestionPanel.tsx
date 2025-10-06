@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -11,56 +13,53 @@ import {
 import { IQuestion } from "@/types/question";
 import { ButtonQuiz } from "@/features/quiz/components/ui/button-quiz";
 import { QuizConfirmDialog } from "@/features/quiz/components/container/QuizConfirmDialog";
+import { STORAGE_KEYS } from "@/features/quiz/constans/lobbyConstans";
 
 interface QuestionsPanelProps {
   questions: IQuestion[];
+  lobbyId: string;
+  answeredCount: number;
   selectedAnswers: Record<number, number>;
-  onSelectAnswer: (questionIndex: number, answerIndex: number) => void;
   onReset: () => void;
   onSubmit?: () => void;
+  calculateScore: (answers: Record<number, number>) => number;
+  handleReset: () => void;
+  handleAnswer: (questionIndex: number, answerIndex: number) => void;
 }
 
 export const QuestionsPanel = ({
   questions,
+  lobbyId,
+  answeredCount,
   selectedAnswers,
-  onSelectAnswer,
   onReset,
   onSubmit,
+  calculateScore,
+  handleReset,
+  handleAnswer,
 }: QuestionsPanelProps) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   const currentQuestion = questions[currentQuestionIndex];
   const totalQuestions = questions.length;
-  const answeredCount = Object.keys(selectedAnswers).length;
+
+  const optionLabels = ["A", "B", "C", "D"];
 
   const getCorrectAnswerIndex = (question: IQuestion) => {
     return question.answers?.findIndex((answer) => answer.isTrue) ?? -1;
   };
 
-  const calculateScore = () => {
-    return questions.reduce((score, question, qIndex) => {
-      const correctIndex = getCorrectAnswerIndex(question);
-      return score + (selectedAnswers[qIndex] === correctIndex ? 1 : 0);
-    }, 0);
-  };
-
   const handleNext = () => {
-    if (currentQuestionIndex < totalQuestions - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    }
+    if (currentQuestionIndex < totalQuestions - 1)
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
   };
 
   const handlePrevious = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex((prev) => prev - 1);
-    }
+    if (currentQuestionIndex > 0)
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
   };
 
-  const goToQuestion = (index: number) => {
-    setCurrentQuestionIndex(index);
-  };
-
-  const optionLabels = ["A", "B", "C", "D"];
+  const goToQuestion = (index: number) => setCurrentQuestionIndex(index);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
@@ -79,7 +78,8 @@ export const QuestionsPanel = ({
 
           <div className="grid grid-cols-5 gap-3 mb-6">
             {questions.map((_, index) => {
-              const isAnswered = selectedAnswers[index] !== undefined;
+              const isAnswered =
+                selectedAnswers[questions[index].id] !== undefined;
               const isCurrent = index === currentQuestionIndex;
 
               return (
@@ -90,7 +90,7 @@ export const QuestionsPanel = ({
                     isCurrent
                       ? "bg-blue-600 text-white scale-110 shadow-lg"
                       : isAnswered
-                      ? "bg-green-500 text-white hover:bg-green-600"
+                      ? "bg-green-600 text-white hover:bg-green-700"
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                   whileHover={{ scale: isCurrent ? 1.1 : 1.05 }}
@@ -138,7 +138,7 @@ export const QuestionsPanel = ({
                   <Star className="w-4 h-4 text-yellow-500" />
                 </div>
                 <div className="text-2xl font-bold text-green-600">
-                  {calculateScore()}/{totalQuestions}
+                  {calculateScore(selectedAnswers)}/{totalQuestions}
                 </div>
               </motion.div>
             )}
@@ -150,7 +150,13 @@ export const QuestionsPanel = ({
                   Reset Semua
                 </ButtonQuiz>
               }
-              onConfirm={onReset}
+              onConfirm={() => {
+                handleReset;
+                localStorage.removeItem(
+                  `${STORAGE_KEYS.QUIZ_PROGRESS}:${lobbyId}`
+                );
+                onReset();
+              }}
               title="Reset Semua Jawaban?"
               description="Anda yakin ingin mereset semua jawaban?"
               confirmText="Ya, Reset"
@@ -229,6 +235,7 @@ export const QuestionsPanel = ({
               </div>
             </div>
 
+            {/* Question & Options */}
             <div className="p-8">
               <motion.div
                 className="mb-8 bg-blue-50 rounded-xl p-6 border border-blue-100"
@@ -236,7 +243,7 @@ export const QuestionsPanel = ({
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.1 }}
               >
-                <h2 className="text-3xl font-bold text-gray-900 leading-relaxed">
+                <h2 className="text-xl font-bold text-gray-900 leading-relaxed">
                   {currentQuestion.question}
                 </h2>
               </motion.div>
@@ -244,13 +251,13 @@ export const QuestionsPanel = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {currentQuestion.answers?.map((answer, answerIndex) => {
                   const isSelected =
-                    selectedAnswers[currentQuestionIndex] === answerIndex;
+                    selectedAnswers[currentQuestion.id] === answer.id;
 
                   return (
                     <motion.button
                       key={answer.id}
                       onClick={() =>
-                        onSelectAnswer(currentQuestionIndex, answerIndex)
+                        handleAnswer(currentQuestion.id, answer.id)
                       }
                       className={`group relative p-6 rounded-2xl text-left transition-all border-2 cursor-pointer ${
                         isSelected
@@ -282,7 +289,7 @@ export const QuestionsPanel = ({
                           )}
                         </div>
                         <span className="font-medium text-gray-800 text-lg">
-                          {answer.text}
+                          {answer.text} {answer.isTrue && " (Benar)"}
                         </span>
                       </div>
 
@@ -302,6 +309,7 @@ export const QuestionsPanel = ({
                 })}
               </div>
 
+              {/* Navigation */}
               <div className="flex items-center justify-between pt-6 border-t-2 border-gray-100">
                 <ButtonQuiz
                   onClick={handlePrevious}

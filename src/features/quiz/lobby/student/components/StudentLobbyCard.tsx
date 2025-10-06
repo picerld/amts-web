@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { Users, Clock, Star, Target, Plane, RefreshCw } from "lucide-react";
 import { LobbyData } from "@/types/lobby";
 import { ANIMATION_VARIANTS } from "@/features/quiz/constans/lobbyConstans";
+import { ButtonQuiz } from "@/features/quiz/components/ui/button-quiz";
+import { useRouter } from "next/navigation";
 
 interface StudentLobbyCardProps {
   lobby: LobbyData;
@@ -18,6 +20,8 @@ export default function StudentLobbyCard({
   isJoining,
   joinLobby,
 }: StudentLobbyCardProps) {
+  const router = useRouter();
+
   return (
     <motion.div
       key={lobby.id}
@@ -111,18 +115,15 @@ export default function StudentLobbyCard({
       </motion.div>
 
       {lobby.status === "FINISHED" ? (
-        <motion.button
-          className="w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-3 border-2 bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed"
-          initial={{ y: 20, opacity: 0 }}
-          animate={{
-            y: 0,
-            opacity: 1,
-            transition: { delay: index * 0.1 + 0.4 },
+        <ButtonQuiz
+          onClick={() => {
+            router.push(`/lobby/student/${lobby.id}/finished`);
           }}
+          className="w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-3 border-2 bg-gray-100 text-gray-500 border-gray-300 cursor-pointer"
         >
           <RefreshCw className="w-5 h-5" />
           Mission Finished
-        </motion.button>
+        </ButtonQuiz>
       ) : (
         <motion.button
           className={`w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-3 border-2 ${

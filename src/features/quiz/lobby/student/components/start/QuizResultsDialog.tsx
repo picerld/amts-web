@@ -26,7 +26,6 @@ export const QuizResultsDialog = ({
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             initial={{ opacity: 0 }}
@@ -35,7 +34,6 @@ export const QuizResultsDialog = ({
             onClick={onClose}
           />
 
-          {/* Dialog */}
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
             <motion.div
               className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden"
@@ -45,7 +43,6 @@ export const QuizResultsDialog = ({
               transition={{ duration: 0.5, type: "spring" }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header */}
               <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 relative">
                 <button
                   onClick={onClose}
@@ -59,7 +56,6 @@ export const QuizResultsDialog = ({
                 </div>
               </div>
 
-              {/* Content */}
               <div className="p-8 text-center">
                 <motion.div
                   className="relative w-32 h-32 mx-auto mb-6"
@@ -93,7 +89,6 @@ export const QuizResultsDialog = ({
                     : "Terus berlatih untuk hasil yang lebih baik!"}
                 </motion.p>
 
-                {/* Stats Grid */}
                 <div className="grid grid-cols-3 gap-4 mb-8">
                   <motion.div
                     className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200"
@@ -147,15 +142,18 @@ export const QuizResultsDialog = ({
                   </motion.div>
                 </div>
 
-                {/* Action Buttons */}
                 <motion.div
                   className="flex gap-4 justify-center"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.9 }}
                 >
-                  <ButtonQuiz onClick={onClose} variant="secondary" className="bg-gray-100 hover:bg-gray-200">
-                    Lihat Jawaban
+                  <ButtonQuiz
+                    onClick={onClose}
+                    variant="secondary"
+                    className="bg-gray-100 hover:bg-gray-200"
+                  >
+                    Lihat Pembahasan Soal
                   </ButtonQuiz>
                   {onReturnToLobby && (
                     <ButtonQuiz
@@ -163,7 +161,7 @@ export const QuizResultsDialog = ({
                       variant="primary"
                       className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                     >
-                      Kembali ke Lobby
+                      Keluar ke Lobby
                     </ButtonQuiz>
                   )}
                 </motion.div>

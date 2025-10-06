@@ -47,6 +47,14 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         socket.emit("lobby-updated", allLobbies);
       });
 
+      socket.on("get-lobby-user", async ({ lobbyId, userId }) => {
+          const lobbyUser = await prisma.lobbyUser.findFirst({
+            where: { lobbyId: lobbyId, userId: userId },
+          });
+
+          socket.emit("lobby-user-updated", lobbyUser);
+      });
+
       socket.on(
         "create-lobby",
         async (
@@ -140,8 +148,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       });
 
       socket.on("end-quiz", async ({ lobbyId }) => {
-        console.log("Ending quiz for lobby", lobbyId);
-
         const updated = await prisma.examLobby.update({
           where: { id: lobbyId },
           data: { status: "FINISHED" },
@@ -151,6 +157,24 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
         io.emit("quiz-ended", { lobbyId });
       });
+
+      socket.on(
+        "quiz-submit",
+        async ({ lobbyId, userId }: { lobbyId: string; userId: string }) => {
+          const lobbyUser = await prisma.lobbyUser.findFirst({
+            where: { lobbyId, userId },
+          });
+
+          if (!lobbyUser) return;
+
+          const updated = await prisma.lobbyUser.update({
+            where: { id: lobbyUser.id },
+            data: { finished: true },
+          });
+
+          io.emit("quiz-submitted", updated);
+        }
+      );
 
       socket.on("join-lobby", async ({ lobbyId, userId, username }) => {
         try {
@@ -162,9 +186,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
             return;
           }
 
-          if (lobby.status !== "WAITING") {
+          if (lobby.status == "ONGOING") {
             socket.emit("join-error", {
-              message: "Mission already started or finished.",
+              message: "Mission already started.",
             });
             return;
           }
@@ -197,6 +221,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
               _count: { select: { LobbyUser: true } },
             },
           });
+          
           io.emit("lobby-updated", allLobbies);
         } catch (err: any) {
           console.error("Join error:", err);
@@ -242,6 +267,25 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         // });
 
         socket.emit("chat-history", chats[lobbyId]);
+      });
+
+      socket.on("get-questions", async (lobbyId) => {
+        const lobby = await prisma.examLobby.findFirst({
+          where: { id: lobbyId },
+          include: {
+            bank: {
+              include: {
+                questions: {
+                  include: {
+                    answers: true,
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        socket.emit("questions", lobby?.bank?.questions);
       });
 
       // 📌 Student leaves lobby

@@ -158,6 +158,7 @@ export default function InstructorLobbyRoom() {
               <ButtonQuiz
                 onClick={() => setShowResultDialog(false)}
                 variant="abort"
+                className="w-full"
               >
                 Close
               </ButtonQuiz>
@@ -166,7 +167,8 @@ export default function InstructorLobbyRoom() {
                 onClick={() => {
                   setShowResultDialog(false);
                 }}
-                variant="softPrimary"
+                variant="primary"
+                className="w-full"
               >
                 Return to Lobby
               </ButtonQuiz>

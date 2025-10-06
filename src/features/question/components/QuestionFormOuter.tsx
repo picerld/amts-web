@@ -53,10 +53,14 @@ export const QuestionFormOuter = ({ subject }: { subject?: IBank }) => {
     }
   );
 
-  const filteredQuestions =
-    questions?.filter((q) =>
-      q.question.toLowerCase().includes(searchQuery.toLowerCase())
-    ) || [];
+  const sortedQuestions =
+    questions?.slice().sort((a, b) => {
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    }) || [];
+
+  const filteredQuestions = sortedQuestions.filter((q) =>
+    q.question.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   useEffect(() => {
     if (selectedQuestionData) {
@@ -246,8 +250,7 @@ export const QuestionFormOuter = ({ subject }: { subject?: IBank }) => {
                       <div className="flex items-center justify-between w-full gap-2 mb-2">
                         <span className="px-2 py-1 rounded text-lg font-medium">
                           #
-                          {(questions?.findIndex((item) => item.id === q.id) ??
-                            -1) + 1}
+                          {filteredQuestions.indexOf(q) + 1}
                         </span>
                         <div className="flex gap-5">
                           <Button

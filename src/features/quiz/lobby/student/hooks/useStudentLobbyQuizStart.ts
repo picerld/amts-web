@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import Cookies from "js-cookie";
 import { generateUserId } from "@/features/quiz/utils/lobbyHelpers";
 import { getSocket } from "@/utils/socket";
-import { SOCKET_EVENTS, STORAGE_KEYS } from "@/features/quiz/constans/lobbyConstans";
+import {
+  SOCKET_EVENTS,
+  STORAGE_KEYS,
+} from "@/features/quiz/constans/lobbyConstans";
+import { IQuestion } from "@/types/question";
+import { LobbyUser } from "@/types/lobbyUser";
 
 interface UseStudentLobbyQuizStartProps {
   lobbyId: string;
@@ -17,7 +22,14 @@ export const useStudentLobbyQuizStart = ({
 }: UseStudentLobbyQuizStartProps) => {
   const router = useRouter();
 
+  const [questions, setQuestions] = useState<IQuestion[]>([]);
+  const [selectedAnswers, setSelectedAnswers] = useState<
+    Record<number, number> // questionId: answerId
+  >({});
+
   const [lobby, setLobby] = useState<LobbyData | null>(null);
+  const [lobbyUser, setLobbyUser] = useState<LobbyUser | null>(null);
+
   const [currentQuiz, setCurrentQuiz] = useState<LobbyData | null>(null);
   const [userId, setUserId] = useState<string>("");
 
@@ -27,6 +39,8 @@ export const useStudentLobbyQuizStart = ({
 
   const onNotificationRef = useRef(onNotification);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const answeredCount = Object.keys(selectedAnswers).length;
 
   useEffect(() => {
     onNotificationRef.current = onNotification;
@@ -39,6 +53,13 @@ export const useStudentLobbyQuizStart = ({
     const username = Cookies.get("user.username") || "Anonymous";
     setUserId(id);
 
+    const savedAnswers = localStorage.getItem(
+      `${STORAGE_KEYS.QUIZ_PROGRESS}:${lobbyId}`
+    );
+    if (savedAnswers) {
+      setSelectedAnswers(JSON.parse(savedAnswers));
+    }
+
     const s = getSocket();
 
     if (!s.connected) {
@@ -50,6 +71,7 @@ export const useStudentLobbyQuizStart = ({
     });
 
     const savedLobby = localStorage.getItem(STORAGE_KEYS.JOINED_LOBBY);
+    
     if (savedLobby && savedLobby !== lobbyId) {
       router.push(`/lobby/student/${savedLobby}`);
       return;
@@ -70,7 +92,6 @@ export const useStudentLobbyQuizStart = ({
 
     const lobbyUpdateHandler = (updatedLobbies: LobbyData[]) => {
       const current = updatedLobbies.find((l) => l.id === lobbyId);
-      console.log("LOBBY_UPDATED received:", current);
 
       if (!current) {
         setLoadingError(true);
@@ -78,14 +99,20 @@ export const useStudentLobbyQuizStart = ({
         return;
       }
 
-      if (current.status === "ONGOING") {
-        setCurrentQuiz(current);
-      } else if (current.status === "WAITING") {
-        router.push(`/lobby/student/${lobbyId}`);
-        return;
-      } else {
-        router.push("/lobby/student");
-        return;
+      switch (current.status) {
+        case "ONGOING":
+          setCurrentQuiz(current);
+          break;
+        case "WAITING":
+          router.push(`/lobby/student/${lobbyId}`);
+          return;
+        case "FINISHED":
+          setCurrentQuiz(current);
+          setShowResultDialog(true);
+          break;
+        default:
+          router.push("/lobby/student");
+          break;
       }
 
       setIsLoading(false);
@@ -93,9 +120,15 @@ export const useStudentLobbyQuizStart = ({
       clearLoadingTimeout();
     };
 
+    const lobbyUserUpdatedHandler = (updatedLobbyUser: LobbyUser) => {
+      console.log(updatedLobbyUser);
+      if (updatedLobbyUser.lobbyId == lobbyId) {
+        setLobbyUser(updatedLobbyUser);
+      }
+    }
+
     const quizStartedHandler = (updatedLobby: LobbyData) => {
       if (updatedLobby.id === lobbyId) {
-        console.log("QUIZ_STARTED:", updatedLobby);
         setCurrentQuiz(updatedLobby);
         setLobby(updatedLobby);
         onNotificationRef.current(
@@ -112,6 +145,8 @@ export const useStudentLobbyQuizStart = ({
     }) => {
       if (endedLobbyId === lobbyId) {
         localStorage.removeItem(STORAGE_KEYS.JOINED_LOBBY);
+        localStorage.removeItem(`${STORAGE_KEYS.QUIZ_PROGRESS}:${lobbyId}`);
+
         onNotificationRef.current("Ended", `Ended "${lobby?.name}"`);
 
         setTimeout(() => {
@@ -132,25 +167,43 @@ export const useStudentLobbyQuizStart = ({
       }
     };
 
+    const getQuestionsHandler = (questions: IQuestion[]) => {
+      setQuestions(questions);
+    };
+
+    const quizSubmittedHandler = (lobbyUser: LobbyUser) => {
+      onNotificationRef.current("Submitted", "Submitted answers");
+      setLobbyUser(lobbyUser);
+
+      setShowResultDialog(true);
+    };
+
     s.emit(SOCKET_EVENTS.GET_LOBBIES);
+    s.emit(SOCKET_EVENTS.GET_QUESTIONS);
+    s.emit(SOCKET_EVENTS.GET_LOBBY_USER, { lobbyId, userId: id });
 
     timeoutRef.current = setTimeout(() => {
-      console.warn("No lobby data received in time");
       setLoadingError(true);
       setIsLoading(false);
     }, 10000);
 
+    s.on(SOCKET_EVENTS.QUESTIONS, getQuestionsHandler);
+    s.on(SOCKET_EVENTS.LOBBY_USER_UPDATED, lobbyUserUpdatedHandler);
     s.on(SOCKET_EVENTS.LOBBY_UPDATED, lobbyUpdateHandler);
     s.on(SOCKET_EVENTS.QUIZ_STARTED, quizStartedHandler);
     s.on(SOCKET_EVENTS.QUIZ_ENDED, quizEndedHandler);
     s.on(SOCKET_EVENTS.LOBBY_DELETED, lobbyDeletedHandler);
+    s.on(SOCKET_EVENTS.QUIZ_SUBMITTED, quizSubmittedHandler);
 
     return () => {
       clearLoadingTimeout();
+      s.off(SOCKET_EVENTS.QUESTIONS, getQuestionsHandler);
+      s.off(SOCKET_EVENTS.LOBBY_USER_UPDATED, lobbyUserUpdatedHandler);
       s.off(SOCKET_EVENTS.LOBBY_UPDATED, lobbyUpdateHandler);
       s.off(SOCKET_EVENTS.QUIZ_STARTED, quizStartedHandler);
       s.off(SOCKET_EVENTS.QUIZ_ENDED, quizEndedHandler);
       s.off(SOCKET_EVENTS.LOBBY_DELETED, lobbyDeletedHandler);
+      s.off(SOCKET_EVENTS.QUIZ_SUBMITTED, quizSubmittedHandler);
     };
   }, [lobbyId, router]);
 
@@ -160,13 +213,62 @@ export const useStudentLobbyQuizStart = ({
     }
   }, [lobby?.status]);
 
+  const handleAnswer = (questionId: number, answerIndex: number) => {
+    const s = getSocket();
+
+    setSelectedAnswers((prev) => {
+      const updated = { ...prev, [questionId]: answerIndex };
+      localStorage.setItem(
+        `${STORAGE_KEYS.QUIZ_PROGRESS}:${lobbyId}`,
+        JSON.stringify(updated)
+      );
+
+      s.emit(SOCKET_EVENTS.STUDENT_ANSWERED, {
+        lobbyId,
+        userId,
+        questionId,
+        answerIndex,
+      });
+
+      return updated;
+    });
+  };
+
+  const calculateScore = (answers: Record<number, number>) => {
+    // questionId => answerId == question.answers.isTrue
+
+    return questions.reduce((score, question) => {
+      const correctAnswer = question?.answers?.find((a) => a.isTrue);
+      const userAnswerId = answers[question.id];
+      return score + (userAnswerId === correctAnswer?.id ? 1 : 0);
+    }, 0);
+  };
+
+  const handleReset = () => {
+    setSelectedAnswers({});
+    localStorage.removeItem(`${STORAGE_KEYS.QUIZ_PROGRESS}:${lobbyId}`);
+  };
+
+  const submitQuiz = ({ lobbyId, userId }: { lobbyId: string; userId: string }) => {
+    const s = getSocket();
+    s.emit(SOCKET_EVENTS.QUIZ_SUBMIT, { lobbyId, userId });
+  }
+
   return {
     lobby,
+    lobbyUser,
+    questions,
     currentQuiz,
     userId,
     isLoading,
     loadingError,
     showResultDialog,
+    answeredCount,
+    selectedAnswers,
+    submitQuiz,
+    handleAnswer,
+    handleReset,
+    calculateScore,
     setShowResultDialog,
   };
 };
