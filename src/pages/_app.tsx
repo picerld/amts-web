@@ -2,13 +2,15 @@ import { AppProps } from "next/app";
 import { trpc } from "@/utils/trpc";
 import { httpBatchLink } from "@trpc/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import "@/styles/globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Poppins } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SidebarProvider } from "@/components/container/SidebarContext";
+import { getSocket } from "@/utils/socket";
+import { NotificationProvider } from "@/features/quiz/context/NotificationContext";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -18,14 +20,22 @@ const poppins = Poppins({
 });
 
 function MyApp({ Component, pageProps }: AppProps) {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const socket = getSocket();
+
+    socket.on("connect", () =>
+      console.log("✅ Connected to socket:", socket.id)
+    );
+    return () => {
+      socket.removeAllListeners("connect");
+    };
+  }, []);
+
   const [queryClient] = useState(() => new QueryClient());
   const [trpcClient] = useState(() =>
     trpc.createClient({
-      links: [
-        httpBatchLink({
-          url: "/api/trpc",
-        }),
-      ],
+      links: [httpBatchLink({ url: "/api/trpc" })],
     })
   );
 
@@ -40,9 +50,10 @@ function MyApp({ Component, pageProps }: AppProps) {
         >
           <div className={poppins.className}>
             <SidebarProvider>
-              <Component {...pageProps} />
+              <NotificationProvider>
+                <Component {...pageProps} />
+              </NotificationProvider>
             </SidebarProvider>
-
             <Toaster />
           </div>
         </ThemeProvider>

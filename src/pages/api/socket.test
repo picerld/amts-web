@@ -1,0 +1,392 @@
+import { Server as NetServer } from "http";
+import { Server as IOServer } from "socket.io";
+import type { NextApiRequest, NextApiResponse } from "next";
+import { prisma } from "@/lib/prisma";
+
+export const config = { api: { bodyParser: false } };
+
+const chats: Record<string, any[]> = {};
+
+// Track user connections to prevent duplicates
+const userConnections: Record<string, { socketId: string; lobbyId?: string; username?: string }> = {};
+const socketToUser: Record<string, string> = {};
+
+// Cache lobby data to reduce DB queries
+let lobbiesCache: any[] = [];
+let lastCacheUpdate = 0;
+const CACHE_TTL = 5000; // 5 seconds
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (!(res.socket as any).server.io) {
+    console.log("🔌 Initializing Socket.IO server...");
+
+    const io = new IOServer((res.socket as any).server as NetServer, {
+      path: "/api/socket",
+      cors: {
+        origin:
+          process.env.NODE_ENV === "production"
+            ? process.env.NEXT_PUBLIC_SOCKET_URL
+            : "*",
+        methods: ["GET", "POST"],
+      },
+    });
+
+    (res.socket as any).server.io = io;
+
+    // Helper function to get fresh lobbies with caching
+    const getLobbiesWithCache = async (forceRefresh = false) => {
+      const now = Date.now();
+      if (forceRefresh || now - lastCacheUpdate > CACHE_TTL) {
+        lobbiesCache = await prisma.examLobby.findMany({
+          include: {
+            instructor: true,
+            _count: { select: { LobbyUser: true } },
+          },
+        });
+        lastCacheUpdate = now;
+      }
+      return lobbiesCache;
+    };
+
+    // Helper function to cleanup user connection
+    const cleanupUserConnection = async (userId: string, socketId: string) => {
+      const userConn = userConnections[userId];
+      if (userConn && userConn.socketId === socketId) {
+        // Leave lobby if user was in one
+        if (userConn.lobbyId) {
+          const socket = io.sockets.sockets.get(socketId);
+          if (socket) {
+            socket.leave(userConn.lobbyId);
+            // Notify others in the lobby
+            socket.to(userConn.lobbyId).emit("student-left", { 
+              userId, 
+              username: userConn.username,
+              lobbyId: userConn.lobbyId 
+            });
+          }
+          
+          // Remove from database
+          try {
+            await prisma.lobbyUser.deleteMany({ where: { lobbyId: userConn.lobbyId, userId } });
+          } catch (error) {
+            console.error("Error cleaning up lobby user:", error);
+          }
+        }
+        
+        // Clean up tracking
+        delete userConnections[userId];
+        delete socketToUser[socketId];
+      }
+    };
+
+    io.on("connection", (socket) => {
+      console.log("🟢 Client connected:", socket.id);
+
+      socket.on("get-lobbies", async () => {
+        try {
+          const allLobbies = await getLobbiesWithCache();
+          socket.emit("lobby-updated", allLobbies);
+        } catch (error) {
+          console.error("Error getting lobbies:", error);
+          socket.emit("error", { message: "Failed to get lobbies" });
+        }
+      });
+
+      socket.on("create-lobby", async (data) => {
+        try {
+          const newLobby = await prisma.examLobby.create({
+            data: {
+              id: data.id,
+              name: data.name,
+              instructorId: data.instructorId,
+              duration: data.duration,
+              status: "WAITING",
+            },
+          });
+
+          const lobbyData = await prisma.examLobby.findUnique({
+            where: { id: newLobby.id },
+            include: {
+              instructor: true,
+              _count: { select: { LobbyUser: true } },
+            },
+          });
+
+          io.emit("lobby-created", lobbyData);
+          
+          // Force cache refresh
+          const allLobbies = await getLobbiesWithCache(true);
+          io.emit("lobby-updated", allLobbies);
+
+          console.log("Lobby created:", lobbyData);
+        } catch (error) {
+          console.error("Error creating lobby:", error);
+          socket.emit("create-error", { message: "Failed to create lobby" });
+        }
+      });
+
+      // 📌 Teacher starts quiz
+      socket.on("start-quiz", async ({ lobbyId }) => {
+        try {
+          const updatedLobby = await prisma.examLobby.update({
+            where: { id: lobbyId },
+            data: { status: "ONGOING", startTime: new Date() },
+            include: {
+              instructor: true,
+              _count: { select: { LobbyUser: true } },
+            },
+          });
+
+          io.emit("quiz-started", updatedLobby);
+          
+          // Update cache
+          await getLobbiesWithCache(true);
+        } catch (error) {
+          console.error("Error starting quiz:", error);
+          socket.emit("error", { message: "Failed to start quiz" });
+        }
+      });
+
+      socket.on("end-quiz", async ({ lobbyId }) => {
+        try {
+          console.log("Ending quiz for lobby", lobbyId);
+
+          const updated = await prisma.examLobby.update({
+            where: { id: lobbyId },
+            data: { status: "FINISHED" },
+          });
+
+          console.log("Updated lobby:", updated);
+
+          io.emit("quiz-ended", { lobbyId });
+          
+          // Update cache
+          await getLobbiesWithCache(true);
+        } catch (error) {
+          console.error("Error ending quiz:", error);
+          socket.emit("error", { message: "Failed to end quiz" });
+        }
+      });
+
+      socket.on("join-lobby", async ({ lobbyId, userId, username }) => {
+        try {
+          // Check if user is already connected with a different socket
+          const existingConnection = userConnections[userId];
+          if (existingConnection && existingConnection.socketId !== socket.id) {
+            // Cleanup the old connection
+            await cleanupUserConnection(userId, existingConnection.socketId);
+          }
+
+          // Check if this exact socket is already in a lobby
+          const currentUserId = socketToUser[socket.id];
+          if (currentUserId && currentUserId !== userId) {
+            await cleanupUserConnection(currentUserId, socket.id);
+          }
+
+          const lobby = await prisma.examLobby.findUnique({ where: { id: lobbyId } });
+          if (!lobby) {
+            socket.emit("join-error", { message: "Mission does not exist." });
+            return;
+          }
+
+          if (lobby.status !== "WAITING") {
+            socket.emit("join-error", { message: "Mission already started or finished." });
+            return;
+          }
+
+          // Check if user is already in this lobby
+          const existing = await prisma.lobbyUser.findFirst({ 
+            where: { lobbyId, userId } 
+          });
+          
+          if (!existing) {
+            await prisma.lobbyUser.create({
+              data: { lobbyId, userId },
+            });
+          }
+
+          // Join the socket room
+          socket.join(lobbyId);
+
+          // Update connection tracking
+          userConnections[userId] = {
+            socketId: socket.id,
+            lobbyId,
+            username
+          };
+          socketToUser[socket.id] = userId;
+
+          // ✅ Notify the joining client
+          socket.emit("join-success", { lobbyId, lobbyName: lobby.name });
+
+          // ✅ Notify other clients in the lobby (only if it's a new join)
+          if (!existing) {
+            socket.to(lobbyId).emit("student-joined", { userId, username });
+          }
+
+          // ✅ Update all clients with new lobby counts
+          const allLobbies = await getLobbiesWithCache(true);
+          io.emit("lobby-updated", allLobbies);
+          
+        } catch (err: any) {
+          console.error("Join error:", err);
+          socket.emit("join-error", { message: "Failed to join the mission." });
+        }
+      });
+
+      // 📩 handle chat message
+      socket.on("chat-message", async ({ lobbyId, userId, username, message }) => {
+        try {
+          // Verify user is actually in the lobby
+          const userConn = userConnections[userId];
+          if (!userConn || userConn.lobbyId !== lobbyId) {
+            socket.emit("error", { message: "You are not in this lobby" });
+            return;
+          }
+
+          const msg = {
+            userId,
+            username,
+            message,
+            timestamp: new Date().toISOString(),
+          };
+
+          // ✅ store in memory (limit to 50 messages)
+          if (!chats[lobbyId]) chats[lobbyId] = [];
+          chats[lobbyId].push(msg);
+          if (chats[lobbyId].length > 50) {
+            chats[lobbyId].shift(); // remove oldest
+          }
+
+          // ✅ broadcast to everyone in the lobby
+          io.to(lobbyId).emit("chat-message", msg);
+        } catch (error) {
+          console.error("Chat message error:", error);
+          socket.emit("error", { message: "Failed to send message" });
+        }
+      });
+
+      // send chat history when requested
+      socket.on("get-chats", async (lobbyId) => {
+        try {
+          if (!chats[lobbyId]) chats[lobbyId] = [];
+          socket.emit("chat-history", chats[lobbyId]);
+        } catch (error) {
+          console.error("Get chats error:", error);
+          socket.emit("error", { message: "Failed to get chat history" });
+        }
+      });
+
+      // 📌 Student leaves lobby
+      socket.on("leave-lobby", async ({ lobbyId, userId, username }) => {
+        try {
+          await prisma.lobbyUser.deleteMany({ where: { lobbyId, userId } });
+
+          // Leave socket room
+          socket.leave(lobbyId);
+
+          // Update connection tracking
+          if (userConnections[userId]) {
+            delete userConnections[userId];
+          }
+          delete socketToUser[socket.id];
+
+          // Notify the leaving client
+          socket.emit("leave-success", { lobbyId });
+
+          // Notify other clients in the lobby
+          socket.to(lobbyId).emit("student-left", { lobbyId, userId, username });
+
+          // Update lobby counts
+          const allLobbies = await getLobbiesWithCache(true);
+          io.emit("lobby-updated", allLobbies);
+        } catch (error) {
+          console.error("Leave lobby error:", error);
+          socket.emit("error", { message: "Failed to leave lobby" });
+        }
+      });
+
+      // 📌 Teacher deletes lobby
+      socket.on("delete-lobby", async ({ lobbyId, instructorId }) => {
+        try {
+          const dbLobby = await prisma.examLobby.findFirst({
+            where: { id: lobbyId, instructorId },
+          });
+
+          if (!dbLobby) {
+            socket.emit("delete-error", {
+              message: "Lobby not found or unauthorized",
+            });
+            return;
+          }
+
+          // Remove related users
+          await prisma.lobbyUser.deleteMany({ where: { lobbyId } });
+
+          // Delete lobby
+          await prisma.examLobby.delete({ where: { id: lobbyId } });
+
+          // Clear chat history
+          delete chats[lobbyId];
+
+          // Clean up user connections for this lobby
+          Object.keys(userConnections).forEach(userId => {
+            if (userConnections[userId].lobbyId === lobbyId) {
+              delete userConnections[userId];
+            }
+          });
+
+          io.emit("lobby-deleted", { lobbyId });
+
+          const allLobbies = await getLobbiesWithCache(true);
+          io.emit("lobby-updated", allLobbies);
+
+          console.log("Lobby deleted:", dbLobby);
+        } catch (error) {
+          console.error("Delete lobby error:", error);
+          socket.emit("delete-error", { message: "Failed to delete lobby" });
+        }
+      });
+
+      socket.on("disconnect", async (reason) => {
+        console.log("🔴 Client disconnected:", socket.id, "Reason:", reason);
+        
+        try {
+          // Clean up user connection on disconnect
+          const userId = socketToUser[socket.id];
+          if (userId) {
+            await cleanupUserConnection(userId, socket.id);
+            
+            // Update lobby counts if user was in a lobby
+            const allLobbies = await getLobbiesWithCache(true);
+            io.emit("lobby-updated", allLobbies);
+          }
+        } catch (error) {
+          console.error("Disconnect cleanup error:", error);
+        }
+      });
+
+      // Handle unexpected errors
+      socket.on("error", (error) => {
+        console.error("Socket error:", error);
+      });
+    });
+
+    // Cleanup stale connections periodically
+    setInterval(() => {
+      const connectedSockets = Array.from(io.sockets.sockets.keys());
+      Object.keys(socketToUser).forEach(socketId => {
+        if (!connectedSockets.includes(socketId)) {
+          const userId = socketToUser[socketId];
+          if (userId && userConnections[userId]?.socketId === socketId) {
+            console.log("Cleaning up stale connection:", userId, socketId);
+            delete userConnections[userId];
+            delete socketToUser[socketId];
+          }
+        }
+      });
+    }, 30000); // Run every 30 seconds
+  }
+
+  res.end();
+}

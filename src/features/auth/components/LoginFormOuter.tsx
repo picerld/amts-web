@@ -40,6 +40,13 @@ export const LoginFormOuter = () => {
           path: "/",
         });
 
+        Cookies.set("user.username", data.user.username, {
+          expires: 7,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+        });
+
         Cookies.set("auth.role", data.user.roleId.toString(), {
           expires: 7,
           secure: process.env.NODE_ENV === "production",
