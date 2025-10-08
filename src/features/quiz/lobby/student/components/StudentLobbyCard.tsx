@@ -127,7 +127,8 @@ export default function StudentLobbyCard({
           onClick={() => {
             router.push(`/lobby/student/${lobby.id}/finished`);
           }}
-          className="w-full py-4 px-6 rounded-xl font-semibold flex items-center justify-center gap-3 border-2 bg-gray-100 text-gray-500 border-gray-300 cursor-pointer"
+          variant={"primary"}
+          className="w-full"
         >
           <GraduationCap className="w-5 h-5" />
           Review Results

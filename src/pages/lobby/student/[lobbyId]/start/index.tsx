@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/router";
 import { useCountdown } from "@/features/quiz/hooks/useCountdown";
 import LoaderWithPlane from "@/features/quiz/components/dialog/LoaderWithPlane";

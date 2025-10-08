@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   XCircle,
   Award,
-  ArrowLeft,
   ChevronLeft,
   ChevronUp,
 } from "lucide-react";
@@ -22,7 +21,6 @@ import { ANIMATION_VARIANTS } from "@/features/quiz/constans/lobbyConstans";
 import { IAnswer } from "@/types/answer";
 import { IQuestion } from "@/types/question";
 
-// Animated Question Component with Scroll Detection
 function AnimatedQuestion({
   question,
   qIndex,
