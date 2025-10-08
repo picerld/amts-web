@@ -6,6 +6,7 @@ import { bankFormSchema, BankFormSchema } from "../forms/bank";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { TopicFormInner } from "./TopicFormInner";
 import { useState } from "react";
+import Cookies from "js-cookie";
 
 type TopicFormOuterProps = {
   onBankCreated?: (id: number) => void;
@@ -48,7 +49,9 @@ export const TopicFormOuter = ({ onBankCreated }: TopicFormOuterProps) => {
     try {
       createBank({
         title: value.title,
-        userId: "36f079f2-c928-4deb-babc-478770e87e36",
+        userId: Cookies.get("user.id") ?? "",
+        type: "topic",
+        category: value.category,
       });
 
       setTimeout(() => {

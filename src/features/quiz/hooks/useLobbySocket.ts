@@ -130,7 +130,6 @@ export const useLobbySocket = ({
     s.on(SOCKET_EVENTS.QUIZ_STARTED, quizStartedHandler);
     s.on(SOCKET_EVENTS.QUIZ_ENDED, quizEndedHandler);
 
-    // Cleanup
     return () => {
       s.off(SOCKET_EVENTS.LOBBY_UPDATED, lobbyUpdatedHandler);
       s.off(SOCKET_EVENTS.LOBBY_CREATED, lobbyCreatedHandler);
@@ -140,7 +139,7 @@ export const useLobbySocket = ({
       s.off(SOCKET_EVENTS.QUIZ_STARTED, quizStartedHandler);
       s.off(SOCKET_EVENTS.QUIZ_ENDED, quizEndedHandler);
     };
-  }, [router]); // Only router in dependency array
+  }, [router]);
 
   const joinLobby = useCallback(
     (lobbyId: string, status: string) => {

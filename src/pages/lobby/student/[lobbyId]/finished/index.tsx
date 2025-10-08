@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/router";
 import { useStudentLobbyFinished } from "@/features/quiz/lobby/student/hooks/useStudentLobbyFinished";
 import LoaderWithPlane from "@/features/quiz/components/dialog/LoaderWithPlane";
@@ -8,7 +8,211 @@ import { NoQuizScreen } from "@/features/quiz/lobby/student/components/start/NoQ
 import LobbyHeader from "@/features/quiz/components/container/LobbyHeader";
 import LoadingWithCard from "@/features/quiz/components/dialog/LoadingWithCard";
 import { HeadMetaData } from "@/components/meta/HeadMetaData";
-import { CheckCircle2, XCircle, Award, ArrowLeft } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  Award,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronUp,
+} from "lucide-react";
+import { ButtonQuiz } from "@/features/quiz/components/ui/button-quiz";
+import { motion, useInView } from "framer-motion";
+import { ANIMATION_VARIANTS } from "@/features/quiz/constans/lobbyConstans";
+import { IAnswer } from "@/types/answer";
+import { IQuestion } from "@/types/question";
+
+// Animated Question Component with Scroll Detection
+function AnimatedQuestion({
+  question,
+  qIndex,
+  getUserAnswer,
+  isCorrectAnswer,
+}: {
+  question: IQuestion;
+  qIndex: number;
+  getUserAnswer: (questionId: number) => number | undefined;
+  isCorrectAnswer: (questionId: number) => boolean;
+}) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+
+  const userAnswerIndex = getUserAnswer(question.id);
+  const isCorrect = isCorrectAnswer(question.id);
+  const correctAnswer = question.answers?.find((a) => a.isTrue);
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 50, scale: 0.95 }}
+      animate={
+        isInView
+          ? { opacity: 1, y: 0, scale: 1 }
+          : { opacity: 0, y: 50, scale: 0.95 }
+      }
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className={`bg-white rounded-xl shadow-lg p-6 border-l-4 ${
+        isCorrect
+          ? "border-green-500"
+          : userAnswerIndex === undefined
+          ? "border-gray-400"
+          : "border-red-500"
+      }`}
+    >
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="flex items-start gap-3 mb-4"
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={isInView ? { scale: 1 } : { scale: 0 }}
+          transition={{ duration: 0.4, delay: 0.3, type: "spring" }}
+          className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+            isCorrect
+              ? "bg-green-100 text-green-600"
+              : "bg-red-100 text-red-600"
+          }`}
+        >
+          {qIndex + 1}
+        </motion.div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">
+            {question.question}
+          </h3>
+        </div>
+        <motion.div
+          initial={{ scale: 0, rotate: -90 }}
+          animate={
+            isInView ? { scale: 1, rotate: 0 } : { scale: 0, rotate: -90 }
+          }
+          transition={{ duration: 0.5, delay: 0.4, type: "spring" }}
+        >
+          {isCorrect ? (
+            <CheckCircle2 className="w-8 h-8 text-green-500 flex-shrink-0" />
+          ) : (
+            <XCircle className="w-8 h-8 text-red-500 flex-shrink-0" />
+          )}
+        </motion.div>
+      </motion.div>
+
+      <div className="space-y-3">
+        {question.answers?.map((answer, aIndex) => {
+          const isUserAnswer = userAnswerIndex === aIndex;
+          const isCorrectOption = answer.id === correctAnswer?.id;
+
+          return (
+            <motion.div
+              key={answer.id}
+              initial={{ opacity: 0, x: -30 }}
+              animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -30 }}
+              transition={{ duration: 0.4, delay: 0.3 + aIndex * 0.1 }}
+              className={`p-4 rounded-lg border-2 transition ${
+                isCorrectOption
+                  ? "bg-green-50 border-green-500"
+                  : isUserAnswer && !isCorrect
+                  ? "bg-red-50 border-red-500"
+                  : "bg-gray-50 border-gray-200"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={isInView ? { scale: 1 } : { scale: 0 }}
+                  transition={{
+                    duration: 0.3,
+                    delay: 0.4 + aIndex * 0.1,
+                    type: "spring",
+                  }}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold flex-shrink-0 ${
+                    isCorrectOption
+                      ? "bg-green-500 text-white"
+                      : isUserAnswer && !isCorrect
+                      ? "bg-red-500 text-white"
+                      : "bg-gray-300 text-gray-700"
+                  }`}
+                >
+                  {String.fromCharCode(65 + aIndex)}
+                </motion.div>
+                <p
+                  className={`flex-1 ${
+                    isCorrectOption || (isUserAnswer && !isCorrect)
+                      ? "font-semibold"
+                      : ""
+                  }`}
+                >
+                  {answer.text}
+                </p>
+                {isCorrectOption && (
+                  <motion.div
+                    initial={{ scale: 0, rotate: -90 }}
+                    animate={
+                      isInView
+                        ? { scale: 1, rotate: 0 }
+                        : { scale: 0, rotate: -90 }
+                    }
+                    transition={{
+                      duration: 0.4,
+                      delay: 0.5 + aIndex * 0.1,
+                      type: "spring",
+                    }}
+                  >
+                    <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
+                  </motion.div>
+                )}
+                {isUserAnswer && !isCorrect && (
+                  <motion.div
+                    initial={{ scale: 0, rotate: 90 }}
+                    animate={
+                      isInView
+                        ? { scale: 1, rotate: 0 }
+                        : { scale: 0, rotate: 90 }
+                    }
+                    transition={{
+                      duration: 0.4,
+                      delay: 0.5 + aIndex * 0.1,
+                      type: "spring",
+                    }}
+                  >
+                    <XCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Animated Status Message */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+        transition={{ duration: 0.5, delay: 0.6 }}
+        className={`mt-4 p-3 rounded-lg ${
+          isCorrect ? "bg-green-100" : "bg-red-100"
+        }`}
+      >
+        <p
+          className={`text-sm font-medium ${
+            isCorrect ? "text-green-800" : "text-red-800"
+          }`}
+        >
+          {isCorrect
+            ? "✓ Jawaban kamu benar! Hebat!"
+            : userAnswerIndex != null && userAnswerIndex >= 0
+            ? `✗ Jawaban kamu: ${String.fromCharCode(
+                65 + userAnswerIndex
+              )} | Jawaban yang benar: ${String.fromCharCode(
+                65 +
+                  (question.answers?.findIndex((a: IAnswer) => a.isTrue) || 0)
+              )}`
+            : "❗ Kamu tidak menjawab soal ini"}
+        </p>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 export default function StudentQuizFinished() {
   const router = useRouter();
@@ -71,189 +275,181 @@ export default function StudentQuizFinished() {
       />
 
       <div className="px-4 md:px-8 lg:px-32 py-8">
-        {/* Header with Score */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+        <motion.div
+          className="bg-white rounded-2xl shadow-xl p-8 mb-8"
+          variants={ANIMATION_VARIANTS.container}
+          initial="initial"
+          animate="animate"
+        >
           <div className="text-center mb-6">
-            <Award className="w-20 h-20 text-yellow-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            <motion.div
+              className="relative w-32 h-32 mx-auto mb-6"
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.3, type: "spring" }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r bg-blue-700 rounded-full opacity-20 blur-xl" />
+              <div className="relative w-full h-full bg-gradient-to-br bg-blue-700 rounded-full flex items-center justify-center shadow-xl">
+                <Award className="w-16 h-16 text-white" />
+              </div>
+            </motion.div>
+            <motion.h1
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              className="text-3xl font-bold text-gray-800 mb-2"
+            >
               Mission Complete!
-            </h1>
-            <p className="text-gray-600 text-lg">{lobby.name}</p>
+            </motion.h1>
+            <motion.p
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.9 }}
+              className="text-gray-600 text-lg"
+            >
+              {lobby.name}
+            </motion.p>
           </div>
 
           <div className="flex items-center justify-center gap-8 mb-6">
             <div className="text-center">
-              <p className="text-5xl font-bold text-indigo-600">{score}</p>
-              <p className="text-gray-600">Correct</p>
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.95 }}
+                className="text-5xl font-bold text-indigo-600"
+              >
+                {score}
+              </motion.p>
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.98 }}
+                className="text-gray-600"
+              >
+                Correct
+              </motion.p>
             </div>
-            <div className="text-4xl text-gray-400">/</div>
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.9 }}
+              className="text-4xl text-gray-400"
+            >
+              /
+            </motion.div>
             <div className="text-center">
-              <p className="text-5xl font-bold text-gray-700">
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.95 }}
+                className="text-5xl font-bold text-gray-700"
+              >
                 {totalQuestions}
-              </p>
-              <p className="text-gray-600">Questions</p>
+              </motion.p>
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.98 }}
+                className="text-gray-600"
+              >
+                Questions
+              </motion.p>
             </div>
           </div>
 
-          <div className="max-w-md mx-auto">
+          <motion.div
+            className="max-w-md mx-auto"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.98 }}
+          >
             <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Score</span>
-              <span className="font-semibold">{percentage.toFixed(1)}%</span>
+              <motion.span
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.96 }}
+              >
+                Score
+              </motion.span>
+              <motion.span
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 1.5 }}
+                className="font-semibold inline-block origin-bottom"
+              >
+                {percentage.toFixed(1)}%
+              </motion.span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-1000 ${
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${percentage}%` }}
+                transition={{ duration: 1, delay: 1.5, ease: "easeOut" }}
+                className={`h-full rounded-full ${
                   percentage >= 80
                     ? "bg-green-500"
                     : percentage >= 60
                     ? "bg-yellow-500"
                     : "bg-red-500"
                 }`}
-                style={{ width: `${percentage}%` }}
-              ></div>
+              />
             </div>
-          </div>
+          </motion.div>
 
-          <div className="mt-6 text-center">
-            <button
-              onClick={goBackToLobby}
-              className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition flex items-center gap-2 mx-auto"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back to Lobby
-            </button>
-          </div>
-        </div>
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 1.3 }}
+            className="mt-6 text-center"
+          >
+            <ButtonQuiz onClick={goBackToLobby}>
+              <ChevronLeft className="mr-2" /> Back to Lobby
+            </ButtonQuiz>
+          </motion.div>
+        </motion.div>
 
-        {/* Question Review */}
-        <div className="space-y-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="space-y-6"
+        >
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
             Review Answers
           </h2>
 
-          {questions.map((question, qIndex) => {
-            const userAnswerIndex = getUserAnswer(question.id);
-            const isCorrect = isCorrectAnswer(question.id);
-            const correctAnswer = question.answers?.find((a) => a.isTrue);
-
-            return (
-              <div
+          <div className="grid grid-cols-1 gap-10">
+            {questions.map((question, qIndex) => (
+              <AnimatedQuestion
                 key={question.id}
-                className={`bg-white rounded-xl shadow-lg p-6 border-l-4 ${
-                  isCorrect ? "border-green-500" : "border-red-500"
-                }`}
-              >
-                {/* Question Header */}
-                <div className="flex items-start gap-3 mb-4">
-                  <div
-                    className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                      isCorrect
-                        ? "bg-green-100 text-green-600"
-                        : "bg-red-100 text-red-600"
-                    }`}
-                  >
-                    {qIndex + 1}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                      {question.question}
-                    </h3>
-                  </div>
-                  {isCorrect ? (
-                    <CheckCircle2 className="w-8 h-8 text-green-500 flex-shrink-0" />
-                  ) : (
-                    <XCircle className="w-8 h-8 text-red-500 flex-shrink-0" />
-                  )}
-                </div>
+                question={question}
+                qIndex={qIndex}
+                getUserAnswer={getUserAnswer}
+                isCorrectAnswer={isCorrectAnswer}
+              />
+            ))}
+          </div>
+        </motion.div>
 
-                {/* Answers */}
-                <div className="space-y-3">
-                  {question.answers?.map((answer, aIndex) => {
-                    const isUserAnswer = userAnswerIndex === aIndex;
-                    const isCorrectOption = answer.id === correctAnswer?.id;
-
-                    return (
-                      <div
-                        key={answer.id}
-                        className={`p-4 rounded-lg border-2 transition ${
-                          isCorrectOption
-                            ? "bg-green-50 border-green-500"
-                            : isUserAnswer && !isCorrect
-                            ? "bg-red-50 border-red-500"
-                            : "bg-gray-50 border-gray-200"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold flex-shrink-0 ${
-                              isCorrectOption
-                                ? "bg-green-500 text-white"
-                                : isUserAnswer && !isCorrect
-                                ? "bg-red-500 text-white"
-                                : "bg-gray-300 text-gray-700"
-                            }`}
-                          >
-                            {String.fromCharCode(65 + aIndex)}
-                          </div>
-                          <p
-                            className={`flex-1 ${
-                              isCorrectOption || (isUserAnswer && !isCorrect)
-                                ? "font-semibold"
-                                : ""
-                            }`}
-                          >
-                            {answer.text}
-                          </p>
-                          {isCorrectOption && (
-                            <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0" />
-                          )}
-                          {isUserAnswer && !isCorrect && (
-                            <XCircle className="w-6 h-6 text-red-600 flex-shrink-0" />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Status Message */}
-                <div
-                  className={`mt-4 p-3 rounded-lg ${
-                    isCorrect ? "bg-green-100" : "bg-red-100"
-                  }`}
-                >
-                  <p
-                    className={`text-sm font-medium ${
-                      isCorrect ? "text-green-800" : "text-red-800"
-                    }`}
-                  >
-                    {isCorrect
-                      ? "✓ Correct! Great job!"
-                      : userAnswerIndex !== undefined
-                      ? `✗ Your answer: ${String.fromCharCode(
-                          65 + userAnswerIndex
-                        )} | Correct answer: ${String.fromCharCode(
-                          65 +
-                            (question.answers?.findIndex((a) => a.isTrue) || 0)
-                        )}`
-                      : "✗ No answer provided"}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          <button
-            onClick={goBackToLobby}
-            className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 transition flex items-center gap-2 mx-auto shadow-lg"
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-50px" }}
+          transition={{ duration: 0.5 }}
+          className="mt-8 text-center"
+        >
+          <ButtonQuiz
+            onClick={() => {
+              window.scrollTo({
+                top: 0,
+                behavior: "smooth",
+              });
+            }}
           >
-            <ArrowLeft className="w-5 h-5" />
-            Return to Lobby
-          </button>
-        </div>
+            <ChevronUp /> Scroll to Top
+          </ButtonQuiz>
+        </motion.div>
       </div>
     </LobbyHeader>
   );

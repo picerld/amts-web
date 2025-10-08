@@ -13,7 +13,7 @@ async function main() {
 
   await prisma.user.create({
     data: {
-      username: 'rafi',
+      username: 'admin',
       password: 'password',
       role: { connect: { id: 1 } },
     },

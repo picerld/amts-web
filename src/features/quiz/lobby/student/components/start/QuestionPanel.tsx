@@ -19,10 +19,10 @@ interface QuestionsPanelProps {
   questions: IQuestion[];
   lobbyId: string;
   answeredCount: number;
-  selectedAnswers: Record<number, number>;
+  score: number;
+  selectedAnswers: { questionId: number; answerId: number | null }[];
   onReset: () => void;
   onSubmit?: () => void;
-  calculateScore: (answers: Record<number, number>) => number;
   handleReset: () => void;
   handleAnswer: (questionIndex: number, answerIndex: number) => void;
 }
@@ -34,7 +34,7 @@ export const QuestionsPanel = ({
   selectedAnswers,
   onReset,
   onSubmit,
-  calculateScore,
+  score,
   handleReset,
   handleAnswer,
 }: QuestionsPanelProps) => {
@@ -77,9 +77,10 @@ export const QuestionsPanel = ({
           </div>
 
           <div className="grid grid-cols-5 gap-3 mb-6">
-            {questions.map((_, index) => {
-              const isAnswered =
-                selectedAnswers[questions[index].id] !== undefined;
+            {questions.map((question, index) => {
+              const isAnswered = selectedAnswers.some(
+                (a) => a.questionId === question.id
+              );
               const isCurrent = index === currentQuestionIndex;
 
               return (
@@ -138,7 +139,7 @@ export const QuestionsPanel = ({
                   <Star className="w-4 h-4 text-yellow-500" />
                 </div>
                 <div className="text-2xl font-bold text-green-600">
-                  {calculateScore(selectedAnswers)}/{totalQuestions}
+                  {score}/{totalQuestions}
                 </div>
               </motion.div>
             )}
@@ -250,8 +251,11 @@ export const QuestionsPanel = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 {currentQuestion.answers?.map((answer, answerIndex) => {
-                  const isSelected =
-                    selectedAnswers[currentQuestion.id] === answer.id;
+                  const isSelected = selectedAnswers.some(
+                    (a) =>
+                      a.questionId === currentQuestion.id &&
+                      a.answerId === answer.id
+                  );
 
                   return (
                     <motion.button

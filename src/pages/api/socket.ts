@@ -2,6 +2,8 @@ import { Server as NetServer } from "http";
 import { Server as IOServer } from "socket.io";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "@/lib/prisma";
+import { SOCKET_EVENTS } from "@/features/quiz/constans/lobbyConstans";
+import { LobbyData } from "@/types/lobby";
 
 export const config = { api: { bodyParser: false } };
 
@@ -14,10 +16,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     const io = new IOServer((res.socket as any).server as NetServer, {
       path: "/api/socket",
       cors: {
-        origin:
-          process.env.NODE_ENV === "production"
-            ? process.env.NEXT_PUBLIC_SOCKET_URL
-            : "*",
+        origin: "*",
         methods: ["GET", "POST"],
       },
     });
@@ -27,7 +26,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     io.on("connection", (socket) => {
       console.log("🟢 Client connected:", socket.id);
 
-      socket.on("get-lobbies", async () => {
+      socket.on(SOCKET_EVENTS.GET_LOBBIES, async () => {
         const allLobbies = await prisma.examLobby.findMany({
           include: {
             instructor: true,
@@ -44,24 +43,47 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
           },
         });
 
-        socket.emit("lobby-updated", allLobbies);
+        socket.emit(SOCKET_EVENTS.LOBBY_UPDATED, allLobbies);
       });
 
-      socket.on("get-lobby-user", async ({ lobbyId, userId }) => {
-          const lobbyUser = await prisma.lobbyUser.findFirst({
-            where: { lobbyId: lobbyId, userId: userId },
-          });
+      socket.on(SOCKET_EVENTS.PARTICIPANT_LOBBIES_UPDATED, async ({ userId }) => {
+        const lobbyUsers = await prisma.lobbyUser.findMany({
+          where: { userId: userId },
+          include: {
+            lobby: {
+              include: {
+                bank: {
+                  include: {
+                    questions: {
+                      include: {
+                        answers: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
 
-          socket.emit("lobby-user-updated", lobbyUser);
+        socket.emit(SOCKET_EVENTS.PARTICIPANT_LOBBIES_UPDATED, lobbyUsers);
+      });
+
+      socket.on(SOCKET_EVENTS.GET_LOBBY_USER, async ({ lobbyId, userId }) => {
+        const lobbyUser = await prisma.lobbyUser.findFirst({
+          where: { lobbyId: lobbyId, userId: userId },
+        });
+
+        socket.emit(SOCKET_EVENTS.LOBBY_USER_UPDATED, lobbyUser);
       });
 
       socket.on(
-        "create-lobby",
+        SOCKET_EVENTS.CREATE_LOBBY,
         async (
           data,
           callback: (res: {
             success: boolean;
-            lobby?: any;
+            lobby?: LobbyData;
             message?: string;
           }) => void
         ) => {
@@ -84,8 +106,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
               },
             });
 
-            // Broadcast to all clients
-            io.emit("lobby-created", lobbyData);
+            io.emit(SOCKET_EVENTS.LOBBY_CREATED, lobbyData);
 
             const allLobbies = await prisma.examLobby.findMany({
               include: {
@@ -93,10 +114,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
                 _count: { select: { LobbyUser: true } },
               },
             });
-            io.emit("lobby-updated", allLobbies);
+            io.emit(SOCKET_EVENTS.LOBBY_UPDATED, allLobbies);
 
-            // ✅ Send acknowledgment to the creating client
-            if (callback) callback({ success: true, lobby: lobbyData });
+            if (callback) callback({ success: true, lobby: lobbyData as LobbyData });
           } catch (err: any) {
             console.error(err);
             if (callback) callback({ success: false, message: err.message });
@@ -104,10 +124,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         }
       );
 
-      // 📌 Update lobby bank/subject
-      socket.on("update-lobby-bank", async ({ lobbyId, bankId }) => {
+      socket.on(SOCKET_EVENTS.UPDATE_LOBBY_BANK, async ({ lobbyId, bankId }) => {
         try {
-          const updatedLobby = await prisma.examLobby.update({
+          await prisma.examLobby.update({
             where: { id: lobbyId },
             data: { bankId },
             include: {
@@ -116,7 +135,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
             },
           });
 
-          io.emit("bank-updated", { lobbyId, bankId });
+          io.emit(SOCKET_EVENTS.BANK_UPDATED, { lobbyId, bankId });
 
           const allLobbies = await prisma.examLobby.findMany({
             include: {
@@ -124,17 +143,15 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
               _count: { select: { LobbyUser: true } },
             },
           });
-          io.emit("lobby-updated", allLobbies);
 
-          console.log("Bank updated for lobby:", lobbyId, "to bank:", bankId);
+          io.emit(SOCKET_EVENTS.LOBBY_UPDATED, allLobbies);
         } catch (err: any) {
           console.error("Error updating bank:", err);
           socket.emit("update-error", { message: "Failed to update subject" });
         }
       });
 
-      // 📌 Teacher starts quiz
-      socket.on("start-quiz", async ({ lobbyId }) => {
+      socket.on(SOCKET_EVENTS.START_QUIZ, async ({ lobbyId }) => {
         const updatedLobby = await prisma.examLobby.update({
           where: { id: lobbyId },
           data: { status: "ONGOING", startTime: new Date() },
@@ -144,22 +161,20 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
           },
         });
 
-        io.emit("quiz-started", updatedLobby);
+        io.emit(SOCKET_EVENTS.QUIZ_STARTED, updatedLobby);
       });
 
-      socket.on("end-quiz", async ({ lobbyId }) => {
-        const updated = await prisma.examLobby.update({
+      socket.on(SOCKET_EVENTS.END_QUIZ, async ({ lobbyId }) => {
+        await prisma.examLobby.update({
           where: { id: lobbyId },
           data: { status: "FINISHED" },
         });
 
-        console.log("Updated lobby:", updated);
-
-        io.emit("quiz-ended", { lobbyId });
+        io.emit(SOCKET_EVENTS.QUIZ_ENDED, { lobbyId });
       });
 
       socket.on(
-        "quiz-submit",
+        SOCKET_EVENTS.QUIZ_SUBMIT,
         async ({ lobbyId, userId }: { lobbyId: string; userId: string }) => {
           const lobbyUser = await prisma.lobbyUser.findFirst({
             where: { lobbyId, userId },
@@ -172,22 +187,22 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
             data: { finished: true },
           });
 
-          io.emit("quiz-submitted", updated);
+          io.emit(SOCKET_EVENTS.QUIZ_SUBMITTED, updated);
         }
       );
 
-      socket.on("join-lobby", async ({ lobbyId, userId, username }) => {
+      socket.on(SOCKET_EVENTS.JOIN_LOBBY, async ({ lobbyId, userId, username }) => {
         try {
           const lobby = await prisma.examLobby.findUnique({
             where: { id: lobbyId },
           });
           if (!lobby) {
-            socket.emit("join-error", { message: "Mission does not exist." });
+            socket.emit(SOCKET_EVENTS.JOIN_ERROR, { message: "Mission does not exist." });
             return;
           }
 
           if (lobby.status == "ONGOING") {
-            socket.emit("join-error", {
+            socket.emit(SOCKET_EVENTS.JOIN_ERROR, {
               message: "Mission already started.",
             });
             return;
@@ -202,36 +217,32 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
             });
           }
 
-          socket.join(lobbyId); // join the socket room
+          socket.join(lobbyId);
 
-          // ✅ Notify the joining client
-          io.to(socket.id).emit("join-success", {
+          io.to(socket.id).emit(SOCKET_EVENTS.JOIN_SUCCESS, {
             lobbyId,
             lobbyName: lobby.name,
             lobby: lobby,
           });
 
-          // ✅ Notify other clients in the lobby
-          socket.to(lobbyId).emit("student-joined", { userId, username });
+          socket.to(lobbyId).emit(SOCKET_EVENTS.STUDENT_JOINED, { userId, username });
 
-          // ✅ Update all clients with new lobby counts
           const allLobbies = await prisma.examLobby.findMany({
             include: {
               instructor: true,
               _count: { select: { LobbyUser: true } },
             },
           });
-          
-          io.emit("lobby-updated", allLobbies);
+
+          io.emit(SOCKET_EVENTS.LOBBY_UPDATED, allLobbies);
         } catch (err: any) {
           console.error("Join error:", err);
           socket.emit("join-error", { message: "Failed to join the mission." });
         }
       });
 
-      // 📩 handle chat message
       socket.on(
-        "chat-message",
+        SOCKET_EVENTS.CHAT_MESSAGE,
         async ({ lobbyId, userId, username, message }) => {
           const msg = {
             userId,
@@ -240,63 +251,51 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
             timestamp: new Date().toISOString(),
           };
 
-          // ✅ store in memory (limit to 5 for testing, change to 100 in prod)
           if (!chats[lobbyId]) chats[lobbyId] = [];
           chats[lobbyId].push(msg);
           if (chats[lobbyId].length > 10) {
-            chats[lobbyId].shift(); // remove oldest
+            chats[lobbyId].shift();
           }
 
-          // (optional) also save to DB if you want persistent history
-          // await prisma.chatMessage.create({ data: { lobbyId, userId, username, message } });
-
-          // ✅ broadcast to everyone in the lobby
-          io.to(lobbyId).emit("chat-message", msg);
+          io.to(lobbyId).emit(SOCKET_EVENTS.CHAT_MESSAGE, msg);
         }
       );
 
-      // send chat history when requested
-      socket.on("get-chats", async (lobbyId) => {
+      socket.on(SOCKET_EVENTS.GET_CHATS, async (lobbyId) => {
         if (!chats[lobbyId]) chats[lobbyId] = [];
 
-        // if you want from DB:
-        // const history = await prisma.chatMessage.findMany({
-        //   where: { lobbyId },
-        //   orderBy: { createdAt: "asc" },
-        //   take: 100, // only last 100 messages
-        // });
-
-        socket.emit("chat-history", chats[lobbyId]);
+        socket.emit(SOCKET_EVENTS.CHAT_HISTORY, chats[lobbyId]);
       });
 
-      socket.on("get-questions", async (lobbyId) => {
-        const lobby = await prisma.examLobby.findFirst({
-          where: { id: lobbyId },
-          include: {
-            bank: {
-              include: {
-                questions: {
-                  include: {
-                    answers: true,
+      socket.on(SOCKET_EVENTS.GET_QUESTIONS, async ({ lobbyId }) => {
+        try {
+          const lobby = await prisma.examLobby.findFirst({
+            where: { id: lobbyId },
+            include: {
+              bank: {
+                include: {
+                  questions: {
+                    include: {
+                      answers: true,
+                    },
                   },
                 },
               },
             },
-          },
-        });
-
-        socket.emit("questions", lobby?.bank?.questions);
+          });
+          socket.emit(SOCKET_EVENTS.QUESTIONS, lobby?.bank?.questions);
+        } catch (error) {
+          console.error("Error fetching questions:", error);
+          socket.emit("error", { message: "Failed to fetch questions" });
+        }
       });
 
-      // 📌 Student leaves lobby
-      socket.on("leave-lobby", async ({ lobbyId, userId, username }) => {
+      socket.on(SOCKET_EVENTS.LEAVE_LOBBY, async ({ lobbyId, userId, username }) => {
         await prisma.lobbyUser.deleteMany({ where: { lobbyId, userId } });
 
-        // Notify the leaving client
-        socket.emit("leave-success", { lobbyId });
+        socket.emit(SOCKET_EVENTS.LEAVE_SUCCESS, { lobbyId });
 
-        // Notify other clients in the lobby
-        socket.to(lobbyId).emit("student-left", { lobbyId, userId, username });
+        socket.to(lobbyId).emit(SOCKET_EVENTS.STUDENT_LEFT, { lobbyId, userId, username });
 
         socket.leave(lobbyId);
 
@@ -306,29 +305,26 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
             _count: { select: { LobbyUser: true } },
           },
         });
-        io.emit("lobby-updated", allLobbies);
+        io.emit(SOCKET_EVENTS.LOBBY_UPDATED, allLobbies);
       });
 
-      // 📌 Teacher deletes lobby
-      socket.on("delete-lobby", async ({ lobbyId, instructorId }) => {
+      socket.on(SOCKET_EVENTS.DELETE_LOBBY, async ({ lobbyId, instructorId }) => {
         const dbLobby = await prisma.examLobby.findFirst({
           where: { id: lobbyId, instructorId },
         });
 
         if (!dbLobby) {
-          socket.emit("delete-error", {
+          socket.emit(SOCKET_EVENTS.DELETE_LOBBY_ERROR, {
             message: "Lobby not found or unauthorized",
           });
           return;
         }
 
-        // Remove related users
         await prisma.lobbyUser.deleteMany({ where: { lobbyId } });
 
-        // Delete lobby
         await prisma.examLobby.delete({ where: { id: lobbyId } });
 
-        io.emit("lobby-deleted", { lobbyId });
+        io.emit(SOCKET_EVENTS.LOBBY_DELETED, { lobbyId });
 
         const allLobbies = await prisma.examLobby.findMany({
           include: {
@@ -337,9 +333,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
           },
         });
 
-        io.emit("lobby-updated", allLobbies);
-
-        console.log("Lobby deleted:", dbLobby);
+        io.emit(SOCKET_EVENTS.LOBBY_UPDATED, allLobbies);
       });
 
       socket.on("disconnect", () => {

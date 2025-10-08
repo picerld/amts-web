@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import { getSocket } from "@/utils/socket";
+import { getSocket, getCurrentUserId } from "@/utils/socket";
 import { LobbyData } from "@/types/lobby";
 import {
   generateUserId,
@@ -24,7 +24,14 @@ export const UseStudentLobbyList = ({
   const [lobbies, setLobbies] = useState<LobbyData[]>([]);
   const [isJoining, setIsJoining] = useState<string | null>(null);
 
-  const studentId = Cookies.get("user.id") ?? generateUserId();
+  const userId = getCurrentUserId() || Cookies.get("user.id");
+  
+  useEffect(() => {
+    if (!userId) {
+      const newUserId = generateUserId();
+      Cookies.set("user.id", newUserId, { expires: 365 });
+    }
+  }, [userId]);
 
   const onNotificationRef = useRef(onNotification);
 
@@ -33,6 +40,8 @@ export const UseStudentLobbyList = ({
   }, [onNotification]);
 
   useEffect(() => {
+    if (!userId) return;
+
     const s = getSocket();
 
     const savedLobby = localStorage.getItem(STORAGE_KEYS.JOINED_LOBBY);
@@ -45,48 +54,83 @@ export const UseStudentLobbyList = ({
     s.emit(SOCKET_EVENTS.GET_LOBBIES);
 
     const lobbyUpdatedHandler = (updatedLobbies: LobbyData[]) => {
+      console.log("📋 Lobbies updated:", updatedLobbies.length);
       setLobbies(updatedLobbies);
     };
 
     const lobbyCreatedHandler = (createdLobby: LobbyData) => {
-      setLobbies((prev) => [...prev, createdLobby]);
+      console.log("✨ New lobby created:", createdLobby.name);
+      setLobbies((prev) => {
+        // Prevent duplicates
+        if (prev.some(l => l.id === createdLobby.id)) {
+          return prev;
+        }
+        return [...prev, createdLobby];
+      });
     };
 
     const lobbyDeletedHandler = ({ lobbyId }: { lobbyId: string }) => {
+      console.log("🗑️ Lobby deleted:", lobbyId);
       setLobbies((prev) => prev.filter((l) => l.id !== lobbyId));
 
-      if (localStorage.getItem("joinedLobby") === lobbyId) {
-        localStorage.removeItem("joinedLobby");
+      if (localStorage.getItem(STORAGE_KEYS.JOINED_LOBBY) === lobbyId) {
+        localStorage.removeItem(STORAGE_KEYS.JOINED_LOBBY);
+        onNotificationRef.current(
+          "Lobby Closed",
+          "The mission you were in has been closed."
+        );
       }
     };
 
     const quizStartedHandler = (startedLobby: LobbyData) => {
-      const currentLobbyId = localStorage.getItem("joinedLobby");
+      console.log("🎯 Quiz started:", startedLobby.name);
+      const currentLobbyId = localStorage.getItem(STORAGE_KEYS.JOINED_LOBBY);
 
       if (currentLobbyId === startedLobby.id) {
+        onNotificationRef.current(
+          "Quiz Started!",
+          "The mission has begun. Redirecting..."
+        );
         router.push(`/lobby/student/${startedLobby.id}/start`);
       }
     };
 
     const quizEndedHandler = ({ lobbyId }: { lobbyId: string }) => {
-      if (localStorage.getItem("joinedLobby") === lobbyId) {
-        localStorage.removeItem("joinedLobby");
+      console.log("⏱️ Quiz ended:", lobbyId);
+      
+      if (localStorage.getItem(STORAGE_KEYS.JOINED_LOBBY) === lobbyId) {
+        localStorage.removeItem(STORAGE_KEYS.JOINED_LOBBY);
+        onNotificationRef.current(
+          "Quiz Ended",
+          "The mission has concluded."
+        );
       }
 
       s.emit(SOCKET_EVENTS.GET_LOBBIES);
     };
 
     const joinSuccessHandler = ({ lobbyId }: { lobbyId: string }) => {
+      console.log("✅ Successfully joined lobby:", lobbyId);
       setIsJoining(null);
-      localStorage.setItem("joinedLobby", lobbyId);
+      localStorage.setItem(STORAGE_KEYS.JOINED_LOBBY, lobbyId);
+
+      onNotificationRef.current(
+        "Joined!",
+        "Successfully joined the mission."
+      );
 
       s.emit(SOCKET_EVENTS.GET_LOBBIES);
       router.push(`/lobby/student/${lobbyId}`);
     };
 
-    const joinErrorHandler = ({ message }: any) => {
-      console.error("Join error:", message);
+    const joinErrorHandler = ({ message }: { message: string }) => {
+      console.error("❌ Join error:", message);
       setIsJoining(null);
+      
+      onNotificationRef.current(
+        "Join Failed",
+        message || "Could not join the mission."
+      );
     };
 
     s.on(SOCKET_EVENTS.LOBBY_UPDATED, lobbyUpdatedHandler);
@@ -106,9 +150,14 @@ export const UseStudentLobbyList = ({
       s.off(SOCKET_EVENTS.JOIN_SUCCESS, joinSuccessHandler);
       s.off(SOCKET_EVENTS.JOIN_ERROR, joinErrorHandler);
     };
-  }, [studentId, router]);
+  }, [userId, router]);
 
   const joinLobby = (lobbyId: string, status: string) => {
+    if (!userId) {
+      alert("Please refresh the page and try again.");
+      return;
+    }
+
     const s = getSocket();
 
     if (isJoining?.includes(lobbyId)) {
@@ -117,12 +166,18 @@ export const UseStudentLobbyList = ({
     }
 
     if (status === "FINISHED") {
-      alert("This mission has already ended. You cannot join.");
+      onNotificationRef.current(
+        "Mission Ended",
+        "This mission has already ended. You cannot join."
+      );
       return;
     }
 
     if (status === "ONGOING") {
-      alert("This mission has already started. You cannot join.");
+      onNotificationRef.current(
+        "Mission In Progress",
+        "This mission has already started. You cannot join."
+      );
       return;
     }
 
@@ -130,14 +185,14 @@ export const UseStudentLobbyList = ({
 
     s.emit(SOCKET_EVENTS.JOIN_LOBBY, {
       lobbyId,
-      userId: studentId,
+      userId: userId,
       username: Cookies.get("user.username") || "Anonymous",
     });
   };
 
   return {
     lobbies: sortLobbies(lobbies),
-    studentId,
+    studentId: userId,
     joinLobby,
     isJoining,
   };

@@ -10,8 +10,11 @@ export const NOTIFICATION_DURATION = 3000;
 
 export const SOCKET_EVENTS = {
   GET_LOBBIES: 'get-lobbies',
+  GET_PARTICIPANT_LOBBIES: 'get-user-lobbies',
+  PARTICIPANT_LOBBIES_UPDATED: 'participant-lobbies-updated',
   LOBBY_UPDATED: 'lobby-updated',
   LOBBY_CREATED: 'lobby-created',
+  DELETE_LOBBY_ERROR: 'delete-error',
   CREATE_LOBBY: 'create-lobby',
   JOIN_LOBBY: 'join-lobby',
   JOIN_SUCCESS: 'join-success',
