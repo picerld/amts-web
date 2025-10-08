@@ -9,8 +9,13 @@ import { Toaster } from "@/components/ui/sonner";
 import { Poppins } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { SidebarProvider } from "@/components/container/SidebarContext";
-import { getSocket } from "@/utils/socket";
+import {
+  disconnectSocket,
+  getUserIdFromCookie,
+  initializeSocket,
+} from "@/utils/socket";
 import { NotificationProvider } from "@/features/quiz/context/NotificationContext";
+import { SocketProvider } from "@/features/quiz/providers/SocketProvider";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -21,14 +26,20 @@ const poppins = Poppins({
 
 function MyApp({ Component, pageProps }: AppProps) {
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const socket = getSocket();
+    const userId = getUserIdFromCookie();
 
-    socket.on("connect", () =>
-      console.log("✅ Connected to socket:", socket.id)
-    );
+    if (userId) {
+      try {
+        setTimeout(() => {
+          initializeSocket();
+        }, 500);
+      } catch (error) {
+        console.error("Failed to initialize socket:", error);
+      }
+    }
+
     return () => {
-      socket.removeAllListeners("connect");
+      disconnectSocket();
     };
   }, []);
 
@@ -49,11 +60,13 @@ function MyApp({ Component, pageProps }: AppProps) {
           disableTransitionOnChange
         >
           <div className={poppins.className}>
-            <SidebarProvider>
-              <NotificationProvider>
-                <Component {...pageProps} />
-              </NotificationProvider>
-            </SidebarProvider>
+            <SocketProvider>
+              <SidebarProvider>
+                <NotificationProvider>
+                  <Component {...pageProps} />
+                </NotificationProvider>
+              </SidebarProvider>
+            </SocketProvider>
             <Toaster />
           </div>
         </ThemeProvider>

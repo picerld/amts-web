@@ -33,7 +33,7 @@ export default function StudentQuizStart() {
     loadingError,
     answeredCount,
     submitQuiz,
-    calculateScore,
+    score,
     handleAnswer,
     handleReset,
     showResultDialog,
@@ -43,6 +43,7 @@ export default function StudentQuizStart() {
     lobbyId: lobbyId?.toString() ?? "",
     onNotification: setNotification,
   });
+
   const { formattedTime } = useCountdown(
     currentQuiz?.duration || 0,
     currentQuiz?.startTime?.toString() || undefined,
@@ -137,7 +138,7 @@ export default function StudentQuizStart() {
             <QuestionsPanel
               lobbyId={lobbyId?.toString() || ""}
               answeredCount={answeredCount}
-              calculateScore={calculateScore}
+              score={score}
               handleAnswer={handleAnswer}
               handleReset={handleReset}
               onReset={handleReset}
@@ -165,7 +166,7 @@ export default function StudentQuizStart() {
             onClose={() => {
               router.push(`/lobby/student/${lobbyId}/finished`);
             }}
-            score={calculateScore(selectedAnswers)}
+            score={score}
             totalQuestions={totalQuestions}
             quizName={currentQuiz.name}
             onReturnToLobby={goBackToLobbyList}

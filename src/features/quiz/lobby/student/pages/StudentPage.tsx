@@ -6,13 +6,41 @@ import LoaderWithPlane from "@/features/quiz/components/dialog/LoaderWithPlane";
 import LobbyHeader from "@/features/quiz/components/container/LobbyHeader";
 import { HeadMetaData } from "@/components/meta/HeadMetaData";
 import { UseStudentLobbyList } from "../hooks";
-import { getSocket } from "@/utils/socket";
+import { getSocket, initializeSocket } from "@/utils/socket";
 import { StudentLobbyList } from "../components/StudentLobbyList";
 import LoadingWithCard from "@/features/quiz/components/dialog/LoadingWithCard";
+import { generateUserId } from "@/features/quiz/utils/lobbyHelpers";
+import Cookies from "js-cookie";
 
 export default function StudentPage() {
   const [notification, setNotification] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [socketReady, setSocketReady] = useState<boolean>(false);
+
+  useEffect(() => {
+    let userId = Cookies.get("user.id") || null;
+    
+    if (!userId) {
+      userId = generateUserId();
+      Cookies.set("user.id", userId, { expires: 365 });
+    }
+
+    try {
+      const socket = initializeSocket();
+      
+      if (socket.connected) {
+        setSocketReady(true);
+      } else {
+        socket.once("connect", () => {
+          console.log("✅ Socket connected and ready");
+          setSocketReady(true);
+        });
+      }
+    } catch (error) {
+      console.error("❌ Failed to initialize socket:", error);
+      setSocketReady(true);
+    }
+  }, []);
 
   const { lobbies, isJoining, joinLobby } = UseStudentLobbyList({
     onNotification: (title, description) =>
@@ -20,17 +48,17 @@ export default function StudentPage() {
   });
 
   useEffect(() => {
-    if (lobbies !== undefined) {
+    if (lobbies !== undefined && socketReady) {
       setIsLoading(false);
     }
-  }, [lobbies]);
+  }, [lobbies, socketReady]);
 
   const showNotification = (msg: string) => setNotification(msg);
   const dismissNotification = () => setNotification("");
 
   const refreshLobbies = () => {
     setIsLoading(true);
-    showNotification("Scanning for new lobbies...");
+    showNotification("Scanning for new missions...");
 
     const s = getSocket();
 

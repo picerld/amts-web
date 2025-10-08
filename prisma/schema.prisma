@@ -23,18 +23,19 @@ model Role {
 }
 
 model User {
-  id        String      @id @default(uuid())
-  username  String
-  password  String
-  token     String?     @unique
-  roleId    Int
-  role      Role        @relation(fields: [roleId], references: [id])
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @default(now())
-  Bank      Bank[]
-  UserGrade UserGrade[]
-  ExamLobby ExamLobby[]
-  LobbyUser LobbyUser[]
+  id         String       @id @default(uuid())
+  username   String
+  password   String
+  token      String?      @unique
+  roleId     Int
+  role       Role         @relation(fields: [roleId], references: [id])
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @default(now())
+  Bank       Bank[]
+  UserGrade  UserGrade[]
+  ExamLobby  ExamLobby[]
+  LobbyUser  LobbyUser[]
+  UserAnswer UserAnswer[]
 }
 
 model ExamLobby {
@@ -53,15 +54,30 @@ model ExamLobby {
 }
 
 model LobbyUser {
-  id       String    @id @default(uuid())
-  userId   String
-  lobbyId  String
-  joinedAt DateTime  @default(now())
-  finished Boolean   @default(false)
-  user     User      @relation(fields: [userId], references: [id])
-  lobby    ExamLobby @relation(fields: [lobbyId], references: [id])
-  
+  id        String    @id @default(uuid())
+  userId    String
+  lobbyId   String
+  joinedAt  DateTime  @default(now())
+  finished  Boolean   @default(false)
+  user      User      @relation(fields: [userId], references: [id])
+  lobby     ExamLobby @relation(fields: [lobbyId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now())
+
   @@unique([userId, lobbyId], name: "unique_user_lobby")
+}
+
+model UserAnswer {
+  id         String   @id @default(uuid())
+  userId     String
+  questionId Int
+  answerId   Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  User     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  Answer   Answer?  @relation(fields: [answerId], references: [id])
 }
 
 model UserGrade {
@@ -90,22 +106,24 @@ model Bank {
 }
 
 model Question {
-  id        Int      @id @default(autoincrement())
-  question  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
-  bankId    Int
-  answers   Answer[]
-  Bank      Bank     @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  id         Int          @id @default(autoincrement())
+  question   String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @default(now())
+  bankId     Int
+  answers    Answer[]
+  Bank       Bank         @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  UserAnswer UserAnswer[]
 }
 
 model Answer {
-  id         Int      @id @default(autoincrement())
+  id         Int          @id @default(autoincrement())
   option     String
   text       String
   isTrue     Boolean
   questionId Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now())
-  Question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @default(now())
+  Question   Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  UserAnswer UserAnswer[]
 }

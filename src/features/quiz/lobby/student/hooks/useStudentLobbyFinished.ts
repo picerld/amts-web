@@ -9,7 +9,7 @@ import {
   STORAGE_KEYS,
 } from "@/features/quiz/constans/lobbyConstans";
 import { IQuestion } from "@/types/question";
-import { LobbyUser } from "@/types/lobbyUser";
+import { trpc } from "@/utils/trpc";
 
 interface UseStudentLobbyFinishedProps {
   lobbyId: string;
@@ -22,8 +22,8 @@ export const useStudentLobbyFinished = ({
 }: UseStudentLobbyFinishedProps) => {
   const router = useRouter();
 
-  const [questions, setQuestions] = useState<IQuestion[]>([]);
   const [lobby, setLobby] = useState<LobbyData | null>(null);
+  const [questions, setQuestions] = useState<IQuestion[]>([]);
 
   const [userId, setUserId] = useState<string>("");
 
@@ -32,6 +32,11 @@ export const useStudentLobbyFinished = ({
 
   const onNotificationRef = useRef(onNotification);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const userAnswersQuery = trpc.answer.getUserAnswers.useQuery(
+    { userId },
+    { enabled: !!userId }
+  );
 
   useEffect(() => {
     onNotificationRef.current = onNotification;
@@ -71,7 +76,6 @@ export const useStudentLobbyFinished = ({
         return;
       }
 
-      // If lobby is not finished, redirect to appropriate page
       if (current.status === "WAITING") {
         router.push(`/lobby/student/${lobbyId}`);
         return;
@@ -108,18 +112,15 @@ export const useStudentLobbyFinished = ({
       setQuestions(questions);
     };
 
-    // Emit events to get data
     s.emit(SOCKET_EVENTS.GET_LOBBIES);
-    s.emit(SOCKET_EVENTS.GET_QUESTIONS);
+    s.emit(SOCKET_EVENTS.GET_QUESTIONS, { lobbyId });
     s.emit(SOCKET_EVENTS.GET_LOBBY_USER, { lobbyId, userId: id });
 
-    // Set timeout for loading
     timeoutRef.current = setTimeout(() => {
       setLoadingError(true);
       setIsLoading(false);
     }, 10000);
 
-    // Register socket listeners
     s.on(SOCKET_EVENTS.QUESTIONS, getQuestionsHandler);
     s.on(SOCKET_EVENTS.LOBBY_USER_UPDATED, lobbyUserUpdatedHandler);
     s.on(SOCKET_EVENTS.LOBBY_UPDATED, lobbyUpdateHandler);
@@ -134,27 +135,34 @@ export const useStudentLobbyFinished = ({
     };
   }, [lobbyId, router]);
 
-  const getUserAnswer = (questionId: number): number | undefined => {
-    if (!lobby?.bank?.questions) return undefined;
-    const answer = lobby.bank.questions.find((a) => a.questionId === questionId);
-    return answer?.id;
+  const getUserAnswer = (questionId: number) => {
+    const answers = userAnswersQuery.data ?? [];
+    const answer = answers.find((a) => a.questionId === questionId);
+    if (!answer) return undefined;
+
+    const question = questions.find((q) => q.id === questionId);
+    if (!question) return undefined;
+
+    return question.answers?.findIndex(
+      (a) => a.id === answer.answerId
+    );
   };
 
   const isCorrectAnswer = (questionId: number): boolean => {
     const question = questions.find((q) => q.id === questionId);
     const userAnswerIndex = getUserAnswer(questionId);
-    
+
     if (userAnswerIndex === undefined || !question) return false;
 
     const correctAnswer = question.answers?.find((a) => a.isTrue);
     const userAnswer = question.answers?.[userAnswerIndex];
-    
+
     return userAnswer?.id === correctAnswer?.id;
   };
 
   const calculateScore = (): number => {
     if (!lobby?.bank?.questions || !questions.length) return 0;
-    
+
     return questions.reduce((score, question) => {
       return score + (isCorrectAnswer(question.id) ? 1 : 0);
     }, 0);

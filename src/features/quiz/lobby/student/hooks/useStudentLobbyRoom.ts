@@ -293,6 +293,7 @@ export const useStudentLobbyRoom = ({
       s.emit(SOCKET_EVENTS.CHAT_MESSAGE, {
         lobbyId,
         userId,
+        username: Cookies.get("user.username") || "Anonymous",
         message: chatInput,
       });
     setChatInput("");
