@@ -45,6 +45,9 @@ export const SOCKET_EVENTS = {
   QUIZ_SUBMIT: "quiz-submit",
   QUIZ_SUBMITTED: "quiz-submitted",
 
+  // GRADE
+  GRADE_SUBMIT: "grade-submit",
+
   // TODO
   STUDENT_ANSWERED: "student-answered",
   UPDATE_PROGRESS: "update-progress",

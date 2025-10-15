@@ -58,7 +58,7 @@ export default function InstructorLobbyRoom() {
       <HeadMetaData title="Instructor Lobby" />
 
       <InstructorLobbyContainer
-        subjects={subjects || []}
+        subjects={subjects|| []}
         lobby={lobby!}
         messages={messages}
         userId={userId}

@@ -41,6 +41,8 @@ export const useStudentLobbyQuizStart = ({
   const answeredCount = selectedAnswers.length;
   const submitAnswerMutate = trpc.answer.submitUserAnswers.useMutation();
 
+  const submitGradeMutate = trpc.userGrade.create.useMutation();
+
   useEffect(() => {
     onNotificationRef.current = onNotification;
   }, [onNotification]);
@@ -331,7 +333,20 @@ export const useStudentLobbyQuizStart = ({
 
       socket.emit(SOCKET_EVENTS.QUIZ_SUBMIT, { lobbyId, userId });
 
-      console.log("✅ Quiz submission sent");
+      const grade = calculateScore(); // score like 2/4
+      const totalQuestions = questions.length;
+
+      const percentage = totalQuestions > 0 ? (grade / totalQuestions) * 100 : 0;
+
+      const bankId = currentQuiz?.bankId;
+
+      if (bankId) {
+        submitGradeMutate.mutate({
+          userId,
+          bankId,
+          grade: percentage,
+        });
+      }
     } catch (error) {
       console.error("❌ Failed to submit answers:", error);
       onNotificationRef.current("Error", "Failed to submit quiz");
