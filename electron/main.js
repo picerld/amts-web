@@ -19,7 +19,7 @@ function createWindow() {
   // Remove this line later if not needed:
   mainWindow.webContents.openDevTools();
 
-  mainWindow.loadURL("http://192.168.1.214:3000").catch((err) => {
+  mainWindow.loadURL("http://localhost:3000").catch((err) => {
     console.error("Failed to load URL:", err);
   });
 
@@ -54,7 +54,7 @@ app.whenReady().then(() => {
     if (stdout) console.log("Next.js stdout:", stdout);
   });
 
-  waitForServer("http://192.168.1.214:3000");
+  waitForServer("http://localhost:3000");
 });
 
 app.on("window-all-closed", () => {
