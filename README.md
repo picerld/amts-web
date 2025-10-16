@@ -1,3 +1,10 @@
+# POSTGRESQL
+# DATABASE_URL="postgres://postgres:password@localhost:5432/db_unreal"
+
+# MYSQL
+DATABASE_URL="mysql://prisma_user:prisma_password@192.168.1.214:3306/db_unreal"
+SHADOW_DATABASE_URL="mysql://prisma_user:prisma_password@192.168.1.214:3306/db_unreal_shadow"
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
 
 ## Getting Started
