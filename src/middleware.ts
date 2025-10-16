@@ -11,7 +11,7 @@ export function middleware(req: NextRequest) {
   const isStudent = req.cookies.get("auth.role")?.value == "2";
 
   if (isStudent && protectedPaths.some((path) => pathname.startsWith(path))) {
-    return NextResponse.redirect(new URL("/exams", req.url));
+    return NextResponse.redirect(new URL("/lobby", req.url));
   } 
 
   const isProtected = protectedPaths.some((path) => pathname.startsWith(path));

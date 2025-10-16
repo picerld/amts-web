@@ -21,7 +21,7 @@ export const getSocket = (): Socket => {
   const userId = getUserIdFromCookie();
 
   if (!socket) {
-    socket = io("http://localhost:3000", {
+    socket = io("http://192.168.1.214:3000", {
       path: "/api/socket",
       autoConnect: false,
       reconnection: true,

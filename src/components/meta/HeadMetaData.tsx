@@ -9,7 +9,7 @@ export const HeadMetaData: React.FC<{
 }> = ({ title = "AFTS", metaDescription, ogImageUrl, pathName = "" }) => {
   const defaultTitle = "AFTS";
 
-  const baseUrl = "https://localhost:3000";
+  const baseUrl = "https://192.168.1.214:3000";
 
   const pageUrl = new URL(pathName, baseUrl).toString();
 
