@@ -21,11 +21,12 @@ export const getSocket = (): Socket => {
   const userId = getUserIdFromCookie();
 
   if (!socket) {
-    socket = io("http://localhost:3000", {
+    socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://192.168.1.214:3000", {
       path: "/api/socket",
       autoConnect: false,
       reconnection: true,
       reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
     });
 
     socket.on("connect", () => {

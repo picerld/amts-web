@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { LoginFormInner } from "./LoginFormInner";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+import { reconnectSocket } from "@/utils/socket";
 
 export const LoginFormOuter = () => {
   const router = useRouter();
@@ -28,29 +29,25 @@ export const LoginFormOuter = () => {
 
         Cookies.set("auth.token", data.token, {
           expires: 7,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
+          sameSite: "lax",
           path: "/",
         });
 
         Cookies.set("user.id", data.user.id, {
           expires: 7,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
+          sameSite: "lax",
           path: "/",
         });
 
         Cookies.set("user.username", data.user.username, {
           expires: 7,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
+          sameSite: "lax",
           path: "/",
         });
 
         Cookies.set("auth.role", data.user.roleId.toString(), {
           expires: 7,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
+          sameSite: "lax",
           path: "/",
         });
 
@@ -75,6 +72,7 @@ export const LoginFormOuter = () => {
     }
 
     loginUser(values);
+    reconnectSocket();
   };
 
   return (

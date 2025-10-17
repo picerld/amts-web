@@ -13,10 +13,21 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!(res.socket as any).server.io) {
     console.log("🔌 Initializing Socket.IO server...");
 
+    // const io = new IOServer((res.socket as any).server as NetServer, {
+    //   path: "/api/socket",
+    //   cors: {
+    //     origin: "*",
+    //     methods: ["GET", "POST"],
+    //   },
+    // });
+
     const io = new IOServer((res.socket as any).server as NetServer, {
       path: "/api/socket",
       cors: {
-        origin: "*",
+        origin:
+          process.env.NODE_ENV === "production"
+            ? process.env.NEXT_PUBLIC_SOCKET_URL
+            : "*",
         methods: ["GET", "POST"],
       },
     });

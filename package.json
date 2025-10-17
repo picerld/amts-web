@@ -4,11 +4,11 @@
   "private": true,
   "main": "electron/main.js",
   "scripts": {
-    "start": "next start -p 3000",
+    "start": "cross-env HOST=192.168.1.214 PORT=3000 next start",
     "build": "next build",
     "dev": "concurrently \"npm run dev:next\" \"npm run dev:electron\"",
     "dev:next": "next dev",
-    "dev:electron": "cross-env ELECTRON_START_URL=http://localhost:3000 electron .",
+    "dev:electron": "cross-env ELECTRON_START_URL=http://192.168.1.214:3000 electron .",
     "prestart": "node scripts/prisma-setup.js",
     "clean:sharp": "rimraf node_modules/@img",
     "build:electron": "npm run clean:sharp && electron-builder"
@@ -98,6 +98,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "electron": "^38.2.2",
     "electron-builder": "^26.0.12",
     "eslint": "^9",

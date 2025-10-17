@@ -10,16 +10,14 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      contextIsolation: true, // ✅ safer
+      contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  // ✅ Open DevTools to see console logs if something goes wrong
-  // Remove this line later if not needed:
   mainWindow.webContents.openDevTools();
 
-  mainWindow.loadURL("http://localhost:3000").catch((err) => {
+  mainWindow.loadURL("http://192.168.1.214:3000").catch((err) => {
     console.error("Failed to load URL:", err);
   });
 
@@ -28,7 +26,6 @@ function createWindow() {
   });
 }
 
-// ✅ Check when Next.js is ready
 function waitForServer(url, tries = 0, maxTries = 80) {
   http
     .get(url, () => {
@@ -54,7 +51,7 @@ app.whenReady().then(() => {
     if (stdout) console.log("Next.js stdout:", stdout);
   });
 
-  waitForServer("http://localhost:3000");
+  waitForServer("http://192.168.1.214:3000");
 });
 
 app.on("window-all-closed", () => {
